@@ -23,6 +23,7 @@ from app.services.viewer import (
 )
 from app.storage.models import SyncStatus
 from app.storage.repository import EventRepository
+from app.sync.sync_service import SyncService
 
 logger = logging.getLogger("workpulse.agent")
 
@@ -35,6 +36,7 @@ class DesktopAgent:
         self.service = EventService(self.device, repository=self.repository)
         self._idle: IdleDetector | None = None
         self._win32: Win32EventLoop | None = None
+        self._sync: SyncService | None = None
         self._print_lock = threading.Lock()
         try:
             self.repository.cleanup_synced_events(settings.LOCAL_EVENT_RETENTION_DAYS)
@@ -69,11 +71,27 @@ class DesktopAgent:
         else:
             logger.warning("Idle detector requires Windows GetLastInputInfo; live idle capture is disabled")
 
+    def start_sync(self) -> None:
+        if not self.settings.SYNC_ENABLED or not self.settings.api_base_url:
+            return
+        self._sync = SyncService(self.settings, self.device, self.repository)
+        self._sync.start()
+
+    def run_sync_once(self) -> dict[str, int]:
+        service = self._sync or SyncService(self.settings, self.device, self.repository)
+        try:
+            return service.sync_once()
+        finally:
+            if self._sync is None:
+                service.stop()
+
     def stop(self) -> None:
         if self._idle:
             self._idle.stop()
         if self._win32:
             self._win32.stop()
+        if self._sync:
+            self._sync.stop()
 
     def run_test_scenario(self, sequence: Sequence[str] | None = None) -> None:
         simulate_events(
@@ -109,7 +127,13 @@ class DesktopAgent:
         )
 
 
-def run_agent(settings: AgentSettings, *, once: bool = False, sequence: Sequence[str] | None = None) -> int:
+def run_agent(
+    settings: AgentSettings,
+    *,
+    once: bool = False,
+    sequence: Sequence[str] | None = None,
+    sync_once: bool = False,
+) -> int:
     configure_logging(settings)
     settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
     agent = DesktopAgent(settings)
@@ -122,16 +146,26 @@ def run_agent(settings: AgentSettings, *, once: bool = False, sequence: Sequence
         agent.run_test_scenario(sequence)
         print(flush=True)
         agent.print_database_view()
+        if sync_once or (once and settings.SYNC_ENABLED):
+            try:
+                summary = agent.run_sync_once()
+                print(f"\nSync status: {summary}", flush=True)
+                agent.print_database_view()
+            except Exception:
+                logger.exception("Sync-once failed")
         if once:
             print(flush=True)
             agent.print_banner(status="STOPPED")
+            agent.stop()
             return 0
+        agent.start_sync()
     elif not is_windows():
         logger.error("Live mode requires Windows. Use AGENT_MODE=test or python main.py --test")
         print("Live mode requires Windows. Re-run with --test to simulate events.", file=sys.stderr)
         return 1
     else:
         agent.start_live_detectors()
+        agent.start_sync()
         if settings.MIX_SIMULATED_AND_REAL:
             logger.warning("MIX_SIMULATED_AND_REAL is enabled; simulated events will also be recorded")
             agent.run_test_scenario(sequence)

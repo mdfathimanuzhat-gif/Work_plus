@@ -2,7 +2,7 @@
 
 WorkPulse is a company-specific **employee attendance and timesheet management** system. It is an online web application with a Windows desktop agent for automatic attendance tracking.
 
-This repository currently includes project foundation, the database schema, JWT authentication/RBAC, employee/department/team management, and a Windows desktop agent that records local session events. Attendance totals, timesheets, dashboards, reports, notifications, location tracking, and API sync of agent events are not implemented yet.
+This repository currently includes project foundation, the database schema, JWT authentication/RBAC, employee/department/team management, a Windows desktop agent that records local session events, and synchronization of those events to PostgreSQL. Attendance totals, timesheets, dashboards, reports, notifications, and location tracking are not implemented yet.
 
 ## Roles
 
@@ -22,7 +22,7 @@ Access is role-based. Attendance and timesheet scopes are reserved for later pha
 - **Database:** PostgreSQL
 - **Migrations:** Alembic
 - **Authentication:** JWT and Argon2id password hashing
-- **Desktop agent:** Python, Windows session/power/idle detection, local SQLite event queue (no API sync yet)
+- **Desktop agent:** Python, Windows session/power/idle detection, local SQLite event queue, HTTPS sync to FastAPI
 - **Deployment:** Docker, Docker Compose, Nginx, Ubuntu VPS
 
 ## Folder structure
@@ -44,7 +44,7 @@ Access is role-based. Attendance and timesheet scopes are reserved for later pha
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/                React + Vite SPA
-├── desktop-agent/           Windows agent (local events, Phase 5A)
+├── desktop-agent/           Windows agent (local events + API sync)
 ├── database/                Optional SQL notes (schema via Alembic)
 ├── deployment/
 │   ├── docker/              Backend and frontend Dockerfiles
@@ -61,7 +61,7 @@ Access is role-based. Attendance and timesheet scopes are reserved for later pha
 - **Alembic uses the app metadata:** `alembic/env.py` reads `DATABASE_URL` and `Base.metadata` so migrations stay aligned with models.
 - **Health check is liveness-only:** `GET /api/health` returns `{"status":"ok"}` without querying PostgreSQL, so the API process can be probed independently of the database.
 - **Frontend auth:** Login stores access/refresh tokens in `sessionStorage` and loads `/api/auth/me`. Route menus are role-based; authorization is enforced on the API.
-- **Desktop agent (Phase 5A):** Detects Windows login/logout, lock/unlock, sleep/wake, shutdown/restart, and idle start/end locally. It does not sync to the API or calculate attendance yet.
+- **Desktop agent:** Detects Windows login/logout, lock/unlock, sleep/wake, shutdown/restart, and idle start/end locally, stores them in SQLite, and syncs PENDING rows to `/api/agent/events/batch`. It does not calculate attendance totals.
 - **Compose credentials are required:** `docker compose up` expects a local `.env` (from `.env.example`). Postgres password and `DATABASE_URL` are not hard-coded in images.
 
 ## Environment variables
@@ -80,6 +80,8 @@ Backend (`backend/.env.example`):
 | `ENVIRONMENT` | `development`, `test`, or `production` |
 | `CORS_ORIGINS` | Comma-separated browser origins allowed to call the API |
 | `DEV_SEED_PASSWORD` | Optional local-only password for seeded login accounts |
+| `DEVICE_TOKEN_EXPIRE_MINUTES` | Lifetime of desktop-agent device JWTs |
+| `AGENT_EVENT_MAX_BATCH` | Maximum events accepted in one ingest request |
 
 Root `.env.example` additionally defines Compose values: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`.
 
@@ -193,5 +195,8 @@ DATABASE_URL=postgresql+psycopg://workpulse:YOUR_PASSWORD@db:5432/workpulse
 | GET/POST | `/api/teams` | List / create teams |
 | GET/PATCH | `/api/teams/{team_id}` | Team details / update |
 | GET | `/api/teams/{team_id}/members` | Team members visible to the caller |
+| POST | `/api/agent/devices/enroll` | Register a desktop agent device (employee JWT) |
+| POST | `/api/agent/auth/token` | Issue a device JWT from identifier + secret |
+| POST | `/api/agent/events/batch` | Ingest a batch of agent events (device JWT) |
 
-Authentication is in [docs/authentication.md](docs/authentication.md). People management is in [docs/employee-management.md](docs/employee-management.md). Attendance and timesheet APIs are not implemented yet.
+Authentication is in [docs/authentication.md](docs/authentication.md). People management is in [docs/employee-management.md](docs/employee-management.md). Agent event sync is in [docs/event-sync.md](docs/event-sync.md). Attendance totals and timesheet APIs are not implemented yet.

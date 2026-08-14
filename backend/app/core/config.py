@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     CORS_ORIGINS: str = "http://localhost:5173"
     DEV_SEED_PASSWORD: str | None = None
+    DEVICE_TOKEN_EXPIRE_MINUTES: int = 60
+    AGENT_EVENT_MAX_BATCH: int = 100
+    AGENT_EVENT_MAX_FUTURE_SECONDS: int = 7200
+    AGENT_EVENT_MAX_AGE_DAYS: int = 400
 
     @field_validator("DATABASE_URL")
     @classmethod

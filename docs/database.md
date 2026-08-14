@@ -128,6 +128,8 @@ Device <── AttendanceEvent, Location
 | One attendance row per employee per date | `uq_attendance_employee_id_attendance_date` |
 | One timesheet row per employee/date/project/task | `uq_timesheets_employee_id_date_project_task` |
 | Device identifier unique | `devices.device_identifier` unique |
+| Agent event UUID unique | `attendance_events.client_event_id` unique |
+| Device secret hash unique | `devices.secret_hash` unique (nullable until enrolled) |
 | Role / permission names unique | `roles.name`, `permissions.name` |
 | Non-negative duration and hours | check constraints on attendance seconds and timesheet hours |
 | Employee requires an organization | `employees.organization_id` NOT NULL |
@@ -140,6 +142,7 @@ Unique constraints already provide supporting indexes. Additional indexes:
 - `employees.organization_id`, `department_id`, `team_id`, `employee_code`, `email`
 - `attendance.employee_id`, `attendance.attendance_date`
 - `attendance_events.employee_id`, `attendance_events.event_time`
+- `attendance_events.employee_id + event_time`, `attendance_events.device_id + event_time`
 - `timesheets.employee_id`, `timesheets.date`, `timesheets.status`
 - `devices.employee_id`
 - `audit_logs.user_id`, `audit_logs.created_at`
@@ -204,4 +207,4 @@ cd backend
 pytest
 ```
 
-Schema tests run Alembic against the database in `DATABASE_URL` (pytest defaults to `workpulse_test` when that variable is unset).
+Schema tests run Alembic against `TEST_DATABASE_URL` when set, otherwise `postgresql+psycopg://workpulse:workpulse@127.0.0.1:5432/workpulse_test`. They do not use the developer `DATABASE_URL` from `.env`.

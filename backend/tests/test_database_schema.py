@@ -130,6 +130,7 @@ def test_relationships_can_be_loaded(migrated_database: None) -> None:
             AttendanceEvent(
                 employee_id=member.id,
                 attendance_id=attendance.id,
+                client_event_id=uuid4(),
                 event_type=AttendanceEventType.LOGIN,
                 event_time=datetime(2024, 6, 2, 9, 0, tzinfo=timezone.utc),
             )
@@ -212,3 +213,12 @@ def test_seed_development_data_creates_rbac_placeholders(migrated_database: None
         assert session.scalar(select(Organization).where(Organization.code == DEV_ORGANIZATION_CODE)) is not None
     finally:
         session.close()
+
+
+def test_client_event_id_unique_and_lookup_indexes(migrated_database: None) -> None:
+    inspector = inspect(engine)
+    unique_names = {constraint["name"] for constraint in inspector.get_unique_constraints("attendance_events")}
+    assert "uq_attendance_events_client_event_id" in unique_names
+    index_names = {index["name"] for index in inspector.get_indexes("attendance_events")}
+    assert "ix_attendance_events_employee_id_event_time" in index_names
+    assert "ix_attendance_events_device_id_event_time" in index_names

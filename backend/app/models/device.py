@@ -33,6 +33,7 @@ class Device(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    secret_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
 
     employee: Mapped[Employee] = relationship(back_populates="devices")
     attendance_events: Mapped[list[AttendanceEvent]] = relationship(back_populates="device")

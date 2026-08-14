@@ -1,7 +1,7 @@
 """Local attendance-event representation.
 
-These records stay on the device in this phase. They are not synced to the
-API and are not used to calculate attendance totals yet.
+These records are stored in local SQLite and synchronized to the WorkPulse API
+when connectivity allows. They are not used to calculate attendance totals yet.
 """
 
 from __future__ import annotations

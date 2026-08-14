@@ -128,16 +128,18 @@ class EventRepository:
             ).fetchone()
         return _row_to_stored(row) if row else None
 
-    def get_pending_events(self) -> list[StoredEvent]:
+    def get_pending_events(self, limit: int | None = None) -> list[StoredEvent]:
+        query = """
+            SELECT * FROM attendance_events
+            WHERE sync_status = ?
+            ORDER BY event_timestamp ASC, id ASC
+        """
+        params: list[object] = [SyncStatus.PENDING.value]
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(int(limit))
         with database_connection(self.database_path) as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM attendance_events
-                WHERE sync_status = ?
-                ORDER BY event_timestamp ASC, id ASC
-                """,
-                (SyncStatus.PENDING.value,),
-            ).fetchall()
+            rows = connection.execute(query, params).fetchall()
         return [_row_to_stored(row) for row in rows]
 
     def list_events(self) -> list[StoredEvent]:
@@ -198,6 +200,38 @@ class EventRepository:
                 (SyncStatus.FAILED.value, now, event_id),
             )
         return self.get_event_by_id(event_id)
+
+    def mark_events_synced(self, event_ids: list[str]) -> None:
+        for event_id in event_ids:
+            self.mark_event_synced(event_id)
+
+    def mark_events_failed(self, event_ids: list[str]) -> None:
+        for event_id in event_ids:
+            self.mark_event_failed(event_id)
+
+    def revert_syncing_to_pending(self, event_ids: list[str] | None = None) -> int:
+        """Temporary failures return events to PENDING so they are retried."""
+        with database_connection(self.database_path) as connection:
+            if event_ids:
+                placeholders = ",".join("?" for _ in event_ids)
+                cursor = connection.execute(
+                    f"""
+                    UPDATE attendance_events
+                    SET sync_status = ?
+                    WHERE sync_status = ? AND event_id IN ({placeholders})
+                    """,
+                    [SyncStatus.PENDING.value, SyncStatus.SYNCING.value, *event_ids],
+                )
+            else:
+                cursor = connection.execute(
+                    """
+                    UPDATE attendance_events
+                    SET sync_status = ?
+                    WHERE sync_status = ?
+                    """,
+                    (SyncStatus.PENDING.value, SyncStatus.SYNCING.value),
+                )
+            return int(cursor.rowcount or 0)
 
     def events_eligible_for_cleanup(self, retention_days: int) -> list[StoredEvent]:
         """SYNCED rows older than the retention window. Does not delete them."""

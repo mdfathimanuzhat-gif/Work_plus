@@ -38,6 +38,13 @@ def get_access_payload(
     return decode_token(token, "access")
 
 
+def get_device_payload(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> dict:
+    token = _credentials_token(credentials)
+    return decode_token(token, "device")
+
+
 def get_optional_access_payload(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> dict | None:

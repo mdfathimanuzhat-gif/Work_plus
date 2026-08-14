@@ -26,7 +26,7 @@ def default_user_data_dir() -> Path:
 
 
 class AgentSettings(BaseSettings):
-    """Runtime configuration. Secrets are never required in this phase."""
+    """Runtime configuration. Device secrets come from the environment or a local file."""
 
     model_config = SettingsConfigDict(
         env_file=(AGENT_ROOT / ".env",),
@@ -46,6 +46,16 @@ class AgentSettings(BaseSettings):
     LOG_MAX_BYTES: int = 1_048_576
     LOG_BACKUP_COUNT: int = 5
     TEST_EVENT_DELAY_SECONDS: float = 0.05
+    API_BASE_URL: str | None = None
+    AGENT_EMAIL: str | None = None
+    AGENT_PASSWORD: str | None = None
+    DEVICE_SECRET: str | None = None
+    SYNC_ENABLED: bool = False
+    SYNC_BATCH_SIZE: int = 50
+    SYNC_INTERVAL_SECONDS: float = 15.0
+    SYNC_MAX_BACKOFF_SECONDS: int = 60
+    SYNC_REQUEST_TIMEOUT_SECONDS: float = 15.0
+    ALLOW_INSECURE_HTTP: bool = False
 
     @field_validator("LOG_DIR", "LOCAL_DATABASE_PATH", mode="before")
     @classmethod
@@ -84,6 +94,20 @@ class AgentSettings(BaseSettings):
             raise ValueError(f"LOG_LEVEL must be one of {sorted(allowed)}")
         return level
 
+    @field_validator("SYNC_BATCH_SIZE")
+    @classmethod
+    def batch_size_must_be_positive(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("SYNC_BATCH_SIZE must be at least 1")
+        return value
+
+    @field_validator("API_BASE_URL", "AGENT_EMAIL", "AGENT_PASSWORD", "DEVICE_SECRET", mode="before")
+    @classmethod
+    def empty_string_is_missing(cls, value: object) -> object:
+        if value == "":
+            return None
+        return value
+
     @field_validator("AGENT_MODE")
     @classmethod
     def agent_mode_must_be_known(cls, value: str) -> str:
@@ -117,6 +141,16 @@ class AgentSettings(BaseSettings):
     def local_database_path(self) -> Path:
         assert self.LOCAL_DATABASE_PATH is not None
         return self.LOCAL_DATABASE_PATH
+
+    @property
+    def device_secret_path(self) -> Path:
+        return self.DATA_DIR / "device_secret"
+
+    @property
+    def api_base_url(self) -> str | None:
+        if not self.API_BASE_URL:
+            return None
+        return self.API_BASE_URL.rstrip("/")
 
 
 @lru_cache

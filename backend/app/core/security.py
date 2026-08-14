@@ -20,7 +20,7 @@ _PASSWORD_LETTER = re.compile(r"[A-Za-z]")
 _PASSWORD_DIGIT = re.compile(r"\d")
 MIN_PASSWORD_LENGTH = 10
 
-TokenType = Literal["access", "refresh"]
+TokenType = Literal["access", "refresh", "device"]
 
 
 def hash_password(plain_password: str) -> str:
@@ -75,6 +75,33 @@ def create_token(
         "role": role,
         "roles": roles,
         "typ": token_type,
+        "jti": token_jti,
+        "iat": int(now.timestamp()),
+        "exp": int(expires_at.timestamp()),
+    }
+    encoded = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    return encoded, token_jti, expires_at
+
+
+def create_device_token(
+    *,
+    device_id: uuid.UUID,
+    employee_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    device_identifier: str,
+    expires_delta: timedelta,
+    jti: str | None = None,
+) -> tuple[str, str, datetime]:
+    settings = get_settings()
+    now = _utcnow()
+    expires_at = now + expires_delta
+    token_jti = jti or str(uuid.uuid4())
+    payload: dict[str, Any] = {
+        "sub": str(device_id),
+        "employee_id": str(employee_id),
+        "organization_id": str(organization_id),
+        "device_identifier": device_identifier,
+        "typ": "device",
         "jti": token_jti,
         "iat": int(now.timestamp()),
         "exp": int(expires_at.timestamp()),

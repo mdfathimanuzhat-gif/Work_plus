@@ -34,6 +34,7 @@ desktop-agent/storage/*.sqlite
 desktop-agent/storage/*.sqlite3
 desktop-agent/storage/device_identity.json
 desktop-agent/storage/logs/
+**/device_secret
 
 # Alembic / local DB artifacts
 *.db

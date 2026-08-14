@@ -7,8 +7,9 @@ import pytest
 from alembic import command
 from alembic.config import Config
 
-os.environ.setdefault(
-    "DATABASE_URL",
+# Tests use a dedicated database. Override with TEST_DATABASE_URL if needed.
+os.environ["DATABASE_URL"] = os.environ.get(
+    "TEST_DATABASE_URL",
     "postgresql+psycopg://workpulse:workpulse@127.0.0.1:5432/workpulse_test",
 )
 os.environ.setdefault("SECRET_KEY", "test-secret-key")

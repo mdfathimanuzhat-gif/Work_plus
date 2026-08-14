@@ -1,12 +1,12 @@
 """WorkPulse Windows desktop agent.
 
-Local system-event detection only. Does not connect to the API, PostgreSQL,
-or calculate attendance totals.
+Local system-event detection, SQLite queue, and optional API synchronization.
 
 Usage:
     python main.py              # live detectors (Windows)
     python main.py --test       # simulate events (any OS)
     python main.py --test --once
+    python main.py --test --once --sync-once
 """
 
 from __future__ import annotations
@@ -40,6 +40,11 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         help="Optional test-mode event names, for example WINDOWS_LOGIN SYSTEM_LOCK",
     )
+    parser.add_argument(
+        "--sync-once",
+        action="store_true",
+        help="After recording events, upload pending SQLite rows once",
+    )
     return parser
 
 
@@ -49,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.test:
         overrides["AGENT_MODE"] = "test"
     settings = load_settings(**overrides)
-    return run_agent(settings, once=args.once, sequence=args.events)
+    return run_agent(settings, once=args.once, sequence=args.events, sync_once=args.sync_once)
 
 
 if __name__ == "__main__":

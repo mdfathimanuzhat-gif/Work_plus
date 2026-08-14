@@ -1,14 +1,15 @@
 # WorkPulse desktop agent
 
-Local Windows event detection and **offline SQLite storage** for attendance.
-This phase does **not** connect to FastAPI, PostgreSQL, or the web UI. It does
-**not** calculate worked time, track location, or capture screen/keyboard content.
+Local Windows event detection, **offline SQLite storage**, and **background
+synchronization** to the WorkPulse FastAPI API. This phase does **not** calculate
+worked time, track location, or capture screen/keyboard content.
 
 ## Purpose
 
 Run on an employee Windows PC and record session, power, and idle transitions.
 Events are written to a local SQLite file so they are not lost when the network
-or backend is unavailable. Synchronization with the server is a later phase.
+or backend is unavailable. When the API is reachable, a background sync service
+uploads pending rows to PostgreSQL (see [event-sync.md](event-sync.md)).
 
 ## Local SQLite architecture
 
@@ -73,22 +74,23 @@ SQLite is opened with WAL, a 5s busy timeout, and foreign keys enabled.
 
 | Status | Meaning |
 | --- | --- |
-| `PENDING` | Saved locally; not sent to the server (all new events) |
-| `SYNCING` | Reserved for Phase 5C |
-| `SYNCED` | Reserved for Phase 5C after the server confirms the UUID |
-| `FAILED` | Reserved for Phase 5C |
+| `PENDING` | Saved locally; not confirmed by the server |
+| `SYNCING` | Upload in flight (reverted to `PENDING` if the process stops) |
+| `SYNCED` | Server accepted or reported `already_processed` |
+| `FAILED` | Permanent validation failure (not used for network outages) |
 
-Helpers exist (`mark_event_syncing`, `mark_event_synced`, `mark_event_failed`)
-but **no network client** is implemented. Events stay `PENDING` through agent
-and computer restarts.
+The background sync service lives in `desktop-agent/app/sync/` (`sync_service.py`,
+`api_client.py`, `auth.py`, `retry.py`). Detectors do not call HTTP.
 
 ## Offline behavior
 
 | Situation | Result |
 | --- | --- |
 | Internet up or down | Event → SQLite `PENDING` |
-| Agent restart | Existing rows remain; in-memory state is restored from SQLite |
-| Computer restart | Same file on disk; events remain `PENDING` |
+| Agent restart | Existing rows remain; in-memory state is restored from SQLite; `SYNCING` is reverted to `PENDING` |
+| Computer restart | Same file on disk; pending events upload when the API is reachable |
+| API down | New events stay `PENDING`; sync retries with exponential backoff |
+| API up | Batches of `SYNC_BATCH_SIZE` are posted to `/api/agent/events/batch` |
 
 Duplicate `event_id` values are rejected (`UNIQUE`). Repeated lock-while-locked
 events are still filtered by Phase 5A before insert. Valid lock/unlock pairs
@@ -165,6 +167,15 @@ Copy `desktop-agent/.env.example` to `desktop-agent/.env`.
 | `LOG_DIR` | `{DATA_DIR}/logs` | Rotating logs |
 | `LOCAL_DATABASE_PATH` | `{DATA_DIR}/events.db` | SQLite queue |
 | `LOCAL_EVENT_RETENTION_DAYS` | `30` | Age after which `SYNCED` rows may be deleted |
+| `API_BASE_URL` | unset | WorkPulse origin, e.g. `https://company.example.com` (no trailing `/api`) |
+| `ALLOW_INSECURE_HTTP` | `false` | Set `true` only for local `http://` development |
+| `SYNC_ENABLED` | `false` | Start the background uploader |
+| `SYNC_BATCH_SIZE` | `50` | Max events per request |
+| `SYNC_INTERVAL_SECONDS` | `15` | Pause between successful sync cycles |
+| `SYNC_MAX_BACKOFF_SECONDS` | `60` | Cap for retry delays |
+| `SYNC_REQUEST_TIMEOUT_SECONDS` | `15` | HTTP timeout |
+| `AGENT_EMAIL` / `AGENT_PASSWORD` | unset | Used only to enroll the device (never committed) |
+| `DEVICE_SECRET` | unset | Optional; otherwise `{DATA_DIR}/device_secret` |
 
 ## Running locally
 
@@ -174,7 +185,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-python main.py --test --once
+python main.py --test --once --sync-once
 ```
 
 On Windows, live detection: `python main.py`.
@@ -205,7 +216,8 @@ Pending sync: 3
 | `Failed to initialize local database` | Directory permissions; disk full; path not writable without admin |
 | Duplicate event_id in logs | Same UUID inserted twice; the second insert is rejected and not captured |
 | WAL files (`events.db-wal`) beside the db | Normal while the agent is running |
-| Events stay PENDING | Expected until Phase 5C |
+| Events stay PENDING | Confirm `SYNC_ENABLED`, `API_BASE_URL`, and that `GET /api/health` succeeds |
+| AUTH_ERROR in logs | Re-enroll; check device secret and that the device is active |
 
 ```bash
 cd desktop-agent

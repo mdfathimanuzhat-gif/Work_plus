@@ -125,6 +125,13 @@ Employee profile fields stay on `employees`.
 
 Local seed creates accounts only when `DEV_SEED_PASSWORD` is set in the environment. That password is for development and must not be used in production.
 
+## Desktop-agent device tokens
+
+The Windows agent does not use employee passwords on every request. After
+enrollment (`POST /api/agent/devices/enroll`), it authenticates with a device
+secret and receives a JWT with `typ=device`. Employee access tokens cannot call
+ingest; device tokens cannot call employee APIs. Details: [event-sync.md](event-sync.md).
+
 ## Environment variables
 
 ```

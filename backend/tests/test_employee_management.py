@@ -19,6 +19,7 @@ from app.models.enums import EmploymentStatus
 from app.models.organization import Organization
 from app.models.rbac import EmployeeRole, Role
 from app.models.team import Team
+from app.repositories.user_account import get_account_by_email
 from app.services.auth_service import create_account
 
 PASSWORD = "TestPassw0rd!"
@@ -92,42 +93,68 @@ def demo(migrated_database: None) -> dict[str, Any]:
         role_admin = session.scalar(select(Role).where(Role.name == "ADMIN"))
         assert role_employee is not None
         assert role_admin is not None
-        outsider_team_member = Employee(
-            organization_id=organization.id,
-            employee_code="EMP999",
-            first_name="Other",
-            last_name="TeamMember",
-            email="other.team@workpulse.local",
-            department_id=extra_dept.id,
-            team_id=extra_team.id,
-            employment_status=EmploymentStatus.ACTIVE,
-            is_active=True,
+        outsider_team_member = session.scalar(
+            select(Employee).where(
+                Employee.organization_id == organization.id,
+                Employee.employee_code == "EMP999",
+            )
         )
-        admin = Employee(
-            organization_id=organization.id,
-            employee_code="ADM001",
-            first_name="Asha",
-            last_name="Admin",
-            email="asha.admin@workpulse.local",
-            department_id=extra_dept.id,
-            employment_status=EmploymentStatus.ACTIVE,
-            is_active=True,
+        admin = session.scalar(
+            select(Employee).where(
+                Employee.organization_id == organization.id,
+                Employee.employee_code == "ADM001",
+            )
         )
-        session.add_all([outsider_team_member, admin])
+        if outsider_team_member is None:
+            outsider_team_member = Employee(
+                organization_id=organization.id,
+                employee_code="EMP999",
+                first_name="Other",
+                last_name="TeamMember",
+                email="other.team@workpulse.local",
+                department_id=extra_dept.id,
+                team_id=extra_team.id,
+                employment_status=EmploymentStatus.ACTIVE,
+                is_active=True,
+            )
+            session.add(outsider_team_member)
+        if admin is None:
+            admin = Employee(
+                organization_id=organization.id,
+                employee_code="ADM001",
+                first_name="Asha",
+                last_name="Admin",
+                email="asha.admin@workpulse.local",
+                department_id=extra_dept.id,
+                employment_status=EmploymentStatus.ACTIVE,
+                is_active=True,
+            )
+            session.add(admin)
         session.flush()
-        session.add_all(
-            [
-                EmployeeRole(employee_id=outsider_team_member.id, role_id=role_employee.id),
-                EmployeeRole(employee_id=admin.id, role_id=role_admin.id),
-            ]
-        )
-        create_account(
-            session,
-            employee_id=outsider_team_member.id,
-            email=outsider_team_member.email,
-            password=PASSWORD,
-        )
-        create_account(session, employee_id=admin.id, email=admin.email, password=PASSWORD)
+        existing_role_pairs = {
+            (row.employee_id, row.role_id)
+            for row in session.scalars(
+                select(EmployeeRole).where(
+                    EmployeeRole.employee_id.in_([outsider_team_member.id, admin.id])
+                )
+            )
+        }
+        role_rows = []
+        if (outsider_team_member.id, role_employee.id) not in existing_role_pairs:
+            role_rows.append(EmployeeRole(employee_id=outsider_team_member.id, role_id=role_employee.id))
+        if (admin.id, role_admin.id) not in existing_role_pairs:
+            role_rows.append(EmployeeRole(employee_id=admin.id, role_id=role_admin.id))
+        if role_rows:
+            session.add_all(role_rows)
+        if get_account_by_email(session, outsider_team_member.email) is None:
+            create_account(
+                session,
+                employee_id=outsider_team_member.id,
+                email=outsider_team_member.email,
+                password=PASSWORD,
+            )
+        if get_account_by_email(session, admin.email) is None:
+            create_account(session, employee_id=admin.id, email=admin.email, password=PASSWORD)
         extra_team.team_lead_id = outsider_team_member.id
 
         demo_employees = {

@@ -67,7 +67,10 @@ class Attendance(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class AttendanceEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "attendance_events"
     __table_args__ = (
+        UniqueConstraint("client_event_id", name="uq_attendance_events_client_event_id"),
         Index("ix_attendance_events_event_time", "event_time"),
+        Index("ix_attendance_events_employee_id_event_time", "employee_id", "event_time"),
+        Index("ix_attendance_events_device_id_event_time", "device_id", "event_time"),
     )
 
     employee_id: Mapped[uuid.UUID] = mapped_column(
@@ -88,6 +91,7 @@ class AttendanceEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         nullable=True,
         index=True,
     )
+    client_event_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     event_type: Mapped[AttendanceEventType] = mapped_column(
         pg_enum(AttendanceEventType, "attendance_event_type"),
         nullable=False,
