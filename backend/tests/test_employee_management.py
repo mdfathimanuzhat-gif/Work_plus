@@ -129,7 +129,6 @@ def demo(migrated_database: None) -> dict[str, Any]:
         )
         create_account(session, employee_id=admin.id, email=admin.email, password=PASSWORD)
         extra_team.team_lead_id = outsider_team_member.id
-        from sqlalchemy import select
 
         demo_employees = {
             employee.employee_code: employee
@@ -146,6 +145,7 @@ def demo(migrated_database: None) -> dict[str, Any]:
             "other_member_id": outsider_team_member.id,
             "admin_id": admin.id,
             "outsider_id": outsider.id,
+            "outsider_dept_id": other_dept.id,
             "extra_dept_id": extra_dept.id,
             "extra_team_id": extra_team.id,
             "finops_dept_id": demo_employees["EMP001"].department_id,
@@ -479,13 +479,6 @@ def test_cannot_assign_inactive_team_or_employee_as_team_lead(client: TestClient
 
 def test_cannot_assign_other_organization_department(client: TestClient, demo: dict[str, Any]) -> None:
     token = _token(client, "sidrah.hunain@workpulse.local")
-    session = SessionLocal()
-    try:
-        outsider = session.get(Employee, demo["outsider_id"])
-        assert outsider is not None
-        other_department_id = outsider.department_id
-    finally:
-        session.close()
     response = client.post(
         "/api/employees",
         headers=_auth(token),
@@ -494,7 +487,7 @@ def test_cannot_assign_other_organization_department(client: TestClient, demo: d
             "first_name": "Cross",
             "last_name": "Org",
             "email": "cross.org@workpulse.local",
-            "department_id": str(other_department_id),
+            "department_id": str(demo["outsider_dept_id"]),
         },
     )
     assert response.status_code == 400
