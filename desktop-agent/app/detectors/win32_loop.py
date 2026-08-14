@@ -87,10 +87,9 @@ class Win32EventLoop:
                     self._safe_record(event_type, wparam=wparam, source="power")
                 return
             if msg == WM_ENDSESSION:
-                # WM_ENDSESSION does not officially distinguish reboot from power-off.
-                # Map from this message only. Do not consult Windows Update
-                # RebootRequired — that key means a reboot is pending someday, not
-                # that this WM_ENDSESSION is a restart.
+                # Map only from this WM_ENDSESSION. wParam=TRUE, lParam=0 is
+                # SYSTEM_SHUTDOWN. Do not pass restart heuristics; they override
+                # the message and mis-label shutdown as restart.
                 event_type = map_end_session(wparam, lparam)
                 if event_type is not None:
                     metadata = end_session_metadata(wparam, lparam)

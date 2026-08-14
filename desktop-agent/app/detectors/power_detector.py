@@ -53,30 +53,42 @@ def map_power_broadcast(wparam: int) -> EventType | None:
     return mapping.get(int(wparam))
 
 
+def _unsigned_lparam(lparam: int) -> int:
+    """WM_ENDSESSION lParam is a 32-bit flags value (may arrive signed)."""
+    return int(lparam) & 0xFFFFFFFF
+
+
 def map_end_session(wparam: int, lparam: int, *, restart_requested: bool | None = None) -> EventType | None:
     """Map WM_ENDSESSION to logout, shutdown, or restart.
 
     `wparam` is FALSE if the session is not actually ending.
-    `restart_requested` is only True when the caller has evidence from this
-    message (or an explicit test). Unknown/None defaults to SYSTEM_SHUTDOWN.
+
+    Documented lParam flags are ENDSESSION_LOGOFF, ENDSESSION_CRITICAL, and
+    ENDSESSION_CLOSEAPP. wParam=TRUE with lParam=0 is a normal shutdown.
+    External heuristics (including `restart_requested`) must not override that:
+    they caused SYSTEM_RESTART on machines with a pending Windows Update reboot.
+
+    SYSTEM_RESTART is emitted only when this message's lParam has the optional
+    restart bit. `restart_requested=True` alone is not enough.
     """
-    if not wparam:
+    if not int(wparam):
         return None
-    if lparam & ENDSESSION_LOGOFF:
+    flags = _unsigned_lparam(lparam)
+    if flags & ENDSESSION_LOGOFF:
         return EventType.WINDOWS_LOGOUT
-    if restart_requested is True or (lparam & ENDSESSION_RESTART):
+    if flags & ENDSESSION_RESTART:
         return EventType.SYSTEM_RESTART
     return EventType.SYSTEM_SHUTDOWN
 
 
 def end_session_metadata(wparam: int, lparam: int, *, restart_requested: bool | None = None) -> dict[str, object]:
-    if restart_requested is None and (lparam & ENDSESSION_RESTART):
-        restart_requested = True
+    flags = _unsigned_lparam(lparam)
+    restart_from_message = bool(flags & ENDSESSION_RESTART)
     return {
         "wparam": int(wparam),
         "lparam": int(lparam),
-        "end_session_logoff": bool(lparam & ENDSESSION_LOGOFF),
-        "end_session_critical": bool(lparam & ENDSESSION_CRITICAL),
-        "end_session_restart_bit": bool(lparam & ENDSESSION_RESTART),
-        "restart_requested": restart_requested,
+        "end_session_logoff": bool(flags & ENDSESSION_LOGOFF),
+        "end_session_critical": bool(flags & ENDSESSION_CRITICAL),
+        "end_session_restart_bit": restart_from_message,
+        "restart_requested": True if restart_from_message else None,
     }
