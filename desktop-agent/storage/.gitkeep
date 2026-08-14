@@ -1,0 +1,2 @@
+# Local SQLite event storage will be added in a later phase.
+# device_identity.json and logs are created at runtime and must not be committed.

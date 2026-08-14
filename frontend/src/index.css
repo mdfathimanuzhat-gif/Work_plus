@@ -1,0 +1,147 @@
+:root {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #1a1a1a;
+  background: #f4f6f8;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: #0b5cab;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: #0b3a67;
+  color: #fff;
+}
+
+.app-header a {
+  color: #fff;
+  text-decoration: none;
+  margin-left: 1rem;
+}
+
+.app-header nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.app-main {
+  max-width: 960px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.placeholder-note {
+  color: #52606d;
+  font-size: 0.95rem;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 32rem;
+}
+
+.stack label,
+.filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+input,
+select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #cbd2d9;
+  border-radius: 4px;
+}
+
+button {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #0b3a67;
+  background: #0b3a67;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.link-button {
+  background: transparent;
+  border: none;
+  color: #fff;
+  margin-left: 1rem;
+  text-decoration: underline;
+}
+
+.filters,
+.row,
+.row-between {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.row-between {
+  justify-content: space-between;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.4rem;
+  border-bottom: 1px solid #e4e7eb;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 0.4rem 1rem;
+}
+
+.details dt {
+  font-weight: 600;
+  color: #334e68;
+}
+
+.error {
+  color: #b42318;
+}
+
+.success {
+  color: #067647;
+}
