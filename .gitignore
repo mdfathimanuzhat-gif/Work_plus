@@ -32,6 +32,8 @@ npm-debug.log*
 desktop-agent/storage/*.db
 desktop-agent/storage/*.sqlite
 desktop-agent/storage/*.sqlite3
+desktop-agent/storage/device_identity.json
+desktop-agent/storage/logs/
 
 # Alembic / local DB artifacts
 *.db

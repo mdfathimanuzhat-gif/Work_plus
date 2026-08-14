@@ -1,0 +1,117 @@
+"""Compose detectors, event recording, and the console viewer."""
+
+from __future__ import annotations
+
+import logging
+import sys
+import threading
+from collections.abc import Sequence
+
+from app.config import AgentSettings
+from app.detectors.idle_detector import IdleDetector
+from app.detectors.win32_loop import Win32EventLoop, is_windows
+from app.device import DeviceIdentity, load_or_create_device_identity
+from app.logger import configure_logging
+from app.models import EventType
+from app.services.event_service import EventService
+from app.services.simulator import DEFAULT_SCENARIO, simulate_events
+from app.services.viewer import render_banner, render_event_line
+
+logger = logging.getLogger("workpulse.agent")
+
+
+class DesktopAgent:
+    def __init__(self, settings: AgentSettings, device: DeviceIdentity | None = None) -> None:
+        self.settings = settings
+        self.device = device or load_or_create_device_identity(settings)
+        self.service = EventService(self.device)
+        self._idle: IdleDetector | None = None
+        self._win32: Win32EventLoop | None = None
+        self._print_lock = threading.Lock()
+
+    def attach_console(self) -> None:
+        self.service.add_listener(self._print_event)
+
+    def _print_event(self, event: object) -> None:
+        from app.models import AgentEvent
+
+        if not isinstance(event, AgentEvent):
+            return
+        with self._print_lock:
+            print(render_event_line(event), flush=True)
+
+    def _record(self, event_type: EventType, metadata: dict | None = None, source: str = "detector") -> object:
+        return self.service.record(event_type, metadata=metadata, source=source)
+
+    def start_live_detectors(self) -> None:
+        self._win32 = Win32EventLoop(self._record)
+        self._win32.start()
+        self._idle = IdleDetector(
+            threshold_seconds=self.settings.IDLE_THRESHOLD_SECONDS,
+            poll_interval_seconds=self.settings.IDLE_POLL_INTERVAL_SECONDS,
+            record=self._record,
+            is_locked=lambda: self.service.state.locked,
+        )
+        if is_windows():
+            self._idle.start()
+        else:
+            logger.warning("Idle detector requires Windows GetLastInputInfo; live idle capture is disabled")
+
+    def stop(self) -> None:
+        if self._idle:
+            self._idle.stop()
+        if self._win32:
+            self._win32.stop()
+
+    def run_test_scenario(self, sequence: Sequence[str] | None = None) -> None:
+        simulate_events(
+            self._record,
+            sequence if sequence is not None else DEFAULT_SCENARIO,
+            delay_seconds=self.settings.TEST_EVENT_DELAY_SECONDS,
+        )
+
+    def print_banner(self, *, status: str) -> None:
+        print(
+            render_banner(self.device, status=status, mode=self.settings.AGENT_MODE.upper()),
+            flush=True,
+        )
+        print(flush=True)
+
+
+def run_agent(settings: AgentSettings, *, once: bool = False, sequence: Sequence[str] | None = None) -> int:
+    configure_logging(settings)
+    settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    agent = DesktopAgent(settings)
+    agent.attach_console()
+    agent.print_banner(status="RUNNING")
+
+    test_mode = settings.is_test_mode
+    if test_mode:
+        logger.info("Test mode: emitting simulated events only")
+        agent.run_test_scenario(sequence)
+        if once:
+            agent.print_banner(status="STOPPED")
+            return 0
+    elif not is_windows():
+        logger.error("Live mode requires Windows. Use AGENT_MODE=test or python main.py --test")
+        print("Live mode requires Windows. Re-run with --test to simulate events.", file=sys.stderr)
+        return 1
+    else:
+        agent.start_live_detectors()
+        if settings.MIX_SIMULATED_AND_REAL:
+            logger.warning("MIX_SIMULATED_AND_REAL is enabled; simulated events will also be recorded")
+            agent.run_test_scenario(sequence)
+
+    try:
+        if not test_mode or not once:
+            _wait_until_interrupted()
+    except KeyboardInterrupt:
+        logger.info("Stopping desktop agent")
+    finally:
+        agent.stop()
+    return 0
+
+
+def _wait_until_interrupted() -> None:
+    stop = threading.Event()
+    stop.wait()

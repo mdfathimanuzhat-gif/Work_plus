@@ -1,1 +1,4 @@
-# Desktop-agent dependencies will be added when the agent is implemented.
+pydantic==2.11.3
+pydantic-settings==2.8.1
+pytest==8.3.5
+pywin32>=306; sys_platform == "win32"

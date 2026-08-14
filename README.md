@@ -2,7 +2,7 @@
 
 WorkPulse is a company-specific **employee attendance and timesheet management** system. It is an online web application with a Windows desktop agent for automatic attendance tracking.
 
-This repository currently includes project foundation, the database schema, JWT authentication/RBAC, and employee/department/team management. Attendance tracking, timesheets, dashboards, reports, notifications, location tracking, and the desktop agent behavior are not implemented yet.
+This repository currently includes project foundation, the database schema, JWT authentication/RBAC, employee/department/team management, and a Windows desktop agent that records local session events. Attendance totals, timesheets, dashboards, reports, notifications, location tracking, and API sync of agent events are not implemented yet.
 
 ## Roles
 
@@ -22,7 +22,7 @@ Access is role-based. Attendance and timesheet scopes are reserved for later pha
 - **Database:** PostgreSQL
 - **Migrations:** Alembic
 - **Authentication:** JWT and Argon2id password hashing
-- **Desktop agent (later):** Python, Windows-compatible, SQLite for local events
+- **Desktop agent:** Python, Windows session/power/idle detection, local rotating logs (no API sync yet)
 - **Deployment:** Docker, Docker Compose, Nginx, Ubuntu VPS
 
 ## Folder structure
@@ -44,7 +44,7 @@ Access is role-based. Attendance and timesheet scopes are reserved for later pha
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/                React + Vite SPA
-├── desktop-agent/           Windows agent skeleton
+├── desktop-agent/           Windows agent (local events, Phase 5A)
 ├── database/                Optional SQL notes (schema via Alembic)
 ├── deployment/
 │   ├── docker/              Backend and frontend Dockerfiles
@@ -61,7 +61,7 @@ Access is role-based. Attendance and timesheet scopes are reserved for later pha
 - **Alembic uses the app metadata:** `alembic/env.py` reads `DATABASE_URL` and `Base.metadata` so migrations stay aligned with models.
 - **Health check is liveness-only:** `GET /api/health` returns `{"status":"ok"}` without querying PostgreSQL, so the API process can be probed independently of the database.
 - **Frontend auth:** Login stores access/refresh tokens in `sessionStorage` and loads `/api/auth/me`. Route menus are role-based; authorization is enforced on the API.
-- **Desktop agent is a skeleton:** entrypoint and folders only; it does not pretend to capture Windows events.
+- **Desktop agent (Phase 5A):** Detects Windows login/logout, lock/unlock, sleep/wake, shutdown/restart, and idle start/end locally. It does not sync to the API or calculate attendance yet.
 - **Compose credentials are required:** `docker compose up` expects a local `.env` (from `.env.example`). Postgres password and `DATABASE_URL` are not hard-coded in images.
 
 ## Environment variables
@@ -144,7 +144,19 @@ npm run dev
 
 The Vite dev server runs at http://localhost:5173 and proxies `/api` to http://localhost:8000.
 
-### 3. Docker
+### 3. Desktop agent
+
+```bash
+cd desktop-agent
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py --test --once
+```
+
+Live Windows detection is `python main.py`. See [docs/desktop-agent.md](docs/desktop-agent.md).
+
+### 4. Docker
 
 ```bash
 cp .env.example .env
