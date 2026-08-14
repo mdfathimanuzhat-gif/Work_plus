@@ -1,7 +1,10 @@
 """Development-only seed data.
 
-Creates one organization, department, team, and three employee placeholders
-(HR, team lead, employee) with roles and permissions. No passwords are stored.
+Creates one organization, department, team, and employee placeholders
+(HR, team lead, employee, admin) with roles and permissions.
+
+Login accounts are created only when DEV_SEED_PASSWORD is set. That value is
+read from the environment and is never committed.
 """
 
 from __future__ import annotations
@@ -12,12 +15,15 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models.department import Department
 from app.models.employee import Employee
 from app.models.enums import EmploymentStatus
 from app.models.organization import Organization
 from app.models.rbac import EmployeeRole, Permission, Role
 from app.models.team import Team
+from app.repositories.user_account import get_account_by_email
+from app.services.auth_service import create_account
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +131,9 @@ def seed_development_data(session: Session) -> Organization:
         select(Organization).where(Organization.code == DEV_ORGANIZATION_CODE)
     )
     if organization is not None:
-        logger.info("Development organization %s already exists; skipping people seed", DEV_ORGANIZATION_CODE)
+        logger.info("Development organization %s already exists; ensuring people and accounts", DEV_ORGANIZATION_CODE)
+        _ensure_admin_employee(session, organization, roles)
+        _seed_development_accounts(session, organization)
         return organization
 
     organization = Organization(
@@ -212,5 +220,70 @@ def seed_development_data(session: Session) -> Organization:
         ]
     )
     session.flush()
+
+    admin_employee = Employee(
+        organization_id=organization.id,
+        employee_code="ADM-001",
+        first_name="Asha",
+        last_name="Admin",
+        email="admin.dev@workpulse.local",
+        department_id=department.id,
+        joining_date=date(2024, 1, 2),
+        employment_status=EmploymentStatus.ACTIVE,
+        is_active=True,
+    )
+    session.add(admin_employee)
+    session.flush()
+    session.add(EmployeeRole(employee_id=admin_employee.id, role_id=roles["ADMIN"].id))
+    session.flush()
     logger.info("Seeded development organization %s", DEV_ORGANIZATION_CODE)
+    _seed_development_accounts(session, organization)
     return organization
+
+
+def _seed_development_accounts(session: Session, organization: Organization) -> None:
+    password = get_settings().DEV_SEED_PASSWORD
+    if not password:
+        logger.info("DEV_SEED_PASSWORD is not set; skipping login accounts")
+        return
+
+    employees = list(session.scalars(select(Employee).where(Employee.organization_id == organization.id)))
+    for employee in employees:
+        if get_account_by_email(session, employee.email) is not None:
+            continue
+        create_account(
+            session,
+            employee_id=employee.id,
+            email=employee.email,
+            password=password,
+        )
+    logger.info("Ensured development login accounts for organization %s", organization.code)
+
+
+def _ensure_admin_employee(session: Session, organization: Organization, roles: dict[str, Role]) -> None:
+    existing = session.scalar(
+        select(Employee).where(
+            Employee.organization_id == organization.id,
+            Employee.employee_code == "ADM-001",
+        )
+    )
+    if existing is not None:
+        return
+    department = session.scalar(
+        select(Department).where(Department.organization_id == organization.id).limit(1)
+    )
+    admin_employee = Employee(
+        organization_id=organization.id,
+        employee_code="ADM-001",
+        first_name="Asha",
+        last_name="Admin",
+        email="admin.dev@workpulse.local",
+        department_id=department.id if department else None,
+        joining_date=date(2024, 1, 2),
+        employment_status=EmploymentStatus.ACTIVE,
+        is_active=True,
+    )
+    session.add(admin_employee)
+    session.flush()
+    session.add(EmployeeRole(employee_id=admin_employee.id, role_id=roles["ADMIN"].id))
+    session.flush()

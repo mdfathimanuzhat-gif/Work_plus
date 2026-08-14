@@ -39,6 +39,9 @@ Permissions live in tables (`roles`, `permissions`, `role_permissions`, `employe
 | `locations` | Location snapshots (capture later) |
 | `notifications` | In-app notifications (delivery later) |
 | `audit_logs` | Organization audit trail |
+| `user_accounts` | Login accounts (email + password hash) linked 1:1 to employees |
+| `refresh_tokens` | Hashed refresh tokens for rotation and logout |
+| `revoked_access_tokens` | Access-token `jti` denylist used at logout |
 
 ## Relationships
 
@@ -48,7 +51,7 @@ Organization 1──* Team
 Organization 1──* Employee
 Organization 1──* AuditLog
 
-Employee *──* Role                 (via employee_roles)
+Employee 1──1 UserAccount 1──* RefreshToken / RevokedAccessToken
 Role     *──* Permission           (via role_permissions)
 
 Employee 1──* Device

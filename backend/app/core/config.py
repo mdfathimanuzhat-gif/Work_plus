@@ -6,7 +6,7 @@ Credentials and runtime options are loaded from environment variables
 
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,8 +22,11 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_ALGORITHM: str = "HS256"
     ENVIRONMENT: str = "development"
     CORS_ORIGINS: str = "http://localhost:5173"
+    DEV_SEED_PASSWORD: str | None = None
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -43,7 +46,11 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        if self.ENVIRONMENT.lower() == "production":
+            if not origins or "*" in origins:
+                raise ValueError("CORS_ORIGINS must be an explicit allowlist in production")
+        return origins
 
 
 @lru_cache

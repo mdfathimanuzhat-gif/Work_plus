@@ -72,10 +72,13 @@ Backend (`backend/.env.example`):
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | SQLAlchemy PostgreSQL URL, e.g. `postgresql+psycopg://USER:PASSWORD@HOST:5432/DBNAME` |
-| `SECRET_KEY` | Application secret (JWT will use this later) |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime (used when auth is added) |
+| `SECRET_KEY` | Application secret used to sign JWTs |
+| `JWT_ALGORITHM` | JWT signing algorithm (default `HS256`) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token lifetime |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token lifetime |
 | `ENVIRONMENT` | `development`, `test`, or `production` |
 | `CORS_ORIGINS` | Comma-separated browser origins allowed to call the API |
+| `DEV_SEED_PASSWORD` | Optional local-only password for seeded login accounts |
 
 Root `.env.example` additionally defines Compose values: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`.
 
@@ -128,7 +131,7 @@ alembic upgrade head
 python scripts/seed_dev.py
 ```
 
-`seed_dev.py` runs only when `ENVIRONMENT` is `development`, `dev`, or `local`. It does not store passwords. See [docs/database.md](docs/database.md).
+`seed_dev.py` runs only when `ENVIRONMENT` is `development`, `dev`, or `local`. Login accounts are created only when `DEV_SEED_PASSWORD` is set. See [docs/database.md](docs/database.md) and [docs/authentication.md](docs/authentication.md).
 
 ### 2. Frontend
 
@@ -162,7 +165,11 @@ DATABASE_URL=postgresql+psycopg://workpulse:YOUR_PASSWORD@db:5432/workpulse
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/api/health` | Liveness. Returns `{"status":"ok"}`. |
+| POST | `/api/auth/login` | Issue access and refresh tokens |
+| POST | `/api/auth/refresh` | Rotate tokens |
+| POST | `/api/auth/logout` | Revoke access and refresh tokens |
+| GET | `/api/auth/me` | Current account, roles, and permissions |
+| GET | `/api/employees` | Employees visible to the caller |
+| GET | `/api/employees/{employee_id}` | One employee if the caller is allowed to view them |
 
-No business endpoints are implemented in this phase.
-
-Database schema, migrations, and seed data are documented in [docs/database.md](docs/database.md).
+Authentication details are in [docs/authentication.md](docs/authentication.md). Attendance and timesheet APIs are not implemented yet.

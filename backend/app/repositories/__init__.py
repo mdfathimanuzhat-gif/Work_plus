@@ -1,1 +1,1 @@
-"""Data-access adapters. Added with each feature module."""
+"""SQLAlchemy repository package."""

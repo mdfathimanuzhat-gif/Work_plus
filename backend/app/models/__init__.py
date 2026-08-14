@@ -20,6 +20,8 @@ from app.models.organization import Organization
 from app.models.rbac import EmployeeRole, Permission, Role, role_permissions
 from app.models.team import Team
 from app.models.timesheet import Timesheet, TimesheetApproval
+from app.models.user_account import UserAccount
+from app.models.auth_token import RefreshToken, RevokedAccessToken
 
 __all__ = [
     "Attendance",
@@ -44,5 +46,8 @@ __all__ = [
     "TimesheetApproval",
     "TimesheetApprovalStatus",
     "TimesheetStatus",
+    "UserAccount",
+    "RefreshToken",
+    "RevokedAccessToken",
     "role_permissions",
 ]

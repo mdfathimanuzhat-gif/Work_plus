@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from pathlib import Path
+from uuid import uuid4
 
-import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import inspect, select, text
 
 from app.database.session import SessionLocal, engine
@@ -20,8 +17,6 @@ from app.models.organization import Organization
 from app.models.rbac import EmployeeRole, Permission, Role
 from app.models.team import Team
 from app.models.timesheet import Timesheet
-
-BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 EXPECTED_TABLES = {
     "organizations",
@@ -40,14 +35,11 @@ EXPECTED_TABLES = {
     "locations",
     "notifications",
     "audit_logs",
+    "user_accounts",
+    "refresh_tokens",
+    "revoked_access_tokens",
     "alembic_version",
 }
-
-
-@pytest.fixture(scope="session")
-def migrated_database() -> None:
-    config = Config(str(BACKEND_ROOT / "alembic.ini"))
-    command.upgrade(config, "head")
 
 
 def test_postgresql_connection_works(migrated_database: None) -> None:
@@ -68,7 +60,7 @@ def test_relationships_can_be_loaded(migrated_database: None) -> None:
     try:
         organization = Organization(
             name="Rel Test Org",
-            code="REL-TEST",
+            code=f"REL-{uuid4().hex[:8].upper()}",
             timezone="UTC",
         )
         session.add(organization)
@@ -119,8 +111,9 @@ def test_relationships_can_be_loaded(migrated_database: None) -> None:
         session.add(member)
         session.flush()
 
-        role = Role(name="REL_TEST_ROLE", description="Test-only role")
-        permission = Permission(name="rel.test.permission", description="Test-only permission")
+        suffix = uuid4().hex[:8]
+        role = Role(name=f"REL_TEST_ROLE_{suffix}", description="Test-only role")
+        permission = Permission(name=f"rel.test.permission.{suffix}", description="Test-only permission")
         role.permissions.append(permission)
         session.add(role)
         session.flush()
@@ -154,7 +147,7 @@ def test_relationships_can_be_loaded(migrated_database: None) -> None:
 
         session.expire_all()
         loaded_org = session.scalar(
-            select(Organization).where(Organization.code == "REL-TEST")
+            select(Organization).where(Organization.id == organization.id)
         )
         assert loaded_org is not None
         assert loaded_org.departments[0].name == "Quality"
@@ -162,7 +155,10 @@ def test_relationships_can_be_loaded(migrated_database: None) -> None:
         assert loaded_team.team_lead is not None
         assert loaded_team.team_lead.employee_code == "TL-REL"
         loaded_member = session.scalar(
-            select(Employee).where(Employee.employee_code == "EMP-REL")
+            select(Employee).where(
+                Employee.organization_id == organization.id,
+                Employee.employee_code == "EMP-REL",
+            )
         )
         assert loaded_member is not None
         assert loaded_member.manager is not None
@@ -171,7 +167,7 @@ def test_relationships_can_be_loaded(migrated_database: None) -> None:
         assert loaded_member.team.name == "QA Team"
         assert loaded_member.attendance_records[0].events[0].event_type == AttendanceEventType.LOGIN
         assert loaded_member.timesheets[0].project == "WorkPulse"
-        assert loaded_team.team_lead.employee_roles[0].role.permissions[0].name == "rel.test.permission"
+        assert loaded_team.team_lead.employee_roles[0].role.permissions[0].name == f"rel.test.permission.{suffix}"
     finally:
         session.close()
 
@@ -196,7 +192,7 @@ def test_seed_development_data_creates_rbac_placeholders(migrated_database: None
         assert lead is not None
         assert lead.employee_code == "TL-001"
         codes = {employee.employee_code for employee in loaded.employees}
-        assert codes == {"HR-001", "TL-001", "EMP-001"}
+        assert codes == {"HR-001", "TL-001", "EMP-001", "ADM-001"}
         member = next(employee for employee in loaded.employees if employee.employee_code == "EMP-001")
         assert member.manager_id == lead.id
         role_names = {
@@ -204,7 +200,7 @@ def test_seed_development_data_creates_rbac_placeholders(migrated_database: None
             for employee in loaded.employees
             for assignment in employee.employee_roles
         }
-        assert role_names == {"HR", "TEAM_LEAD", "EMPLOYEE"}
+        assert role_names == {"HR", "TEAM_LEAD", "EMPLOYEE", "ADMIN"}
         hr_role = session.scalar(select(Role).where(Role.name == "HR"))
         assert hr_role is not None
         assert "employee.manage_organization" in {perm.name for perm in hr_role.permissions}

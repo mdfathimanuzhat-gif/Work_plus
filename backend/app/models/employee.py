@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from app.models.rbac import EmployeeRole
     from app.models.team import Team
     from app.models.timesheet import Timesheet, TimesheetApproval
+    from app.models.user_account import UserAccount
 
 
 class Employee(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -102,6 +103,12 @@ class Employee(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     employee_roles: Mapped[list[EmployeeRole]] = relationship(
         back_populates="employee",
         cascade="all, delete-orphan",
+    )
+    account: Mapped[UserAccount | None] = relationship(
+        back_populates="employee",
+        uselist=False,
+        cascade="all, delete-orphan",
+        single_parent=True,
     )
     devices: Mapped[list[Device]] = relationship(
         back_populates="employee",
