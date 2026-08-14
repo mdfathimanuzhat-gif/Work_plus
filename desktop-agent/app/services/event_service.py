@@ -38,6 +38,7 @@ class EventService:
     _events: list[AgentEvent] = field(default_factory=list)
     _listeners: list[Listener] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock)
+    _shutdown: bool = False
 
     def __post_init__(self) -> None:
         if self.repository is None:
@@ -53,6 +54,12 @@ class EventService:
 
     def add_listener(self, listener: Listener) -> None:
         self._listeners.append(listener)
+
+    def begin_shutdown(self) -> None:
+        """Stop accepting new activity events; terminal session events may still persist."""
+        with self._lock:
+            self._shutdown = True
+        logger.info("Event service entering shutdown; new activity events will be ignored")
 
     @property
     def events(self) -> list[AgentEvent]:
@@ -81,6 +88,13 @@ class EventService:
         extra = dict(metadata or {})
         extra.setdefault("source", source)
         with self._lock:
+            if self._shutdown and event_type not in {
+                EventType.WINDOWS_LOGOUT,
+                EventType.SYSTEM_SHUTDOWN,
+                EventType.SYSTEM_RESTART,
+            }:
+                logger.info("Ignoring %s during shutdown", event_type.value)
+                return None
             if self._is_duplicate(event_type):
                 logger.info("Ignoring duplicate %s", event_type.value)
                 return None

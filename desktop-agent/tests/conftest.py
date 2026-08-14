@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+
+# Tests are often launched from the repo root:
+#   .venv\Scripts\python.exe -m pytest .\desktop-agent\tests
+# Put this package first so `import app` is desktop-agent, not backend/app
+# and not a stale copy in site-packages.
+_AGENT_ROOT = Path(__file__).resolve().parents[1]
+_agent_root = str(_AGENT_ROOT)
+if sys.path[:1] != [_agent_root]:
+    sys.path.insert(0, _agent_root)
 
 import pytest
 

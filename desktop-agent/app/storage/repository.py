@@ -149,6 +149,27 @@ class EventRepository:
             ).fetchall()
         return [_row_to_stored(row) for row in rows]
 
+    def get_latest_event(self) -> StoredEvent | None:
+        with database_connection(self.database_path) as connection:
+            row = connection.execute(
+                "SELECT * FROM attendance_events ORDER BY event_timestamp DESC, id DESC LIMIT 1"
+            ).fetchone()
+        return _row_to_stored(row) if row else None
+
+    def get_latest_synced_at(self) -> datetime | None:
+        with database_connection(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT synced_at FROM attendance_events
+                WHERE sync_status = ? AND synced_at IS NOT NULL
+                ORDER BY synced_at DESC LIMIT 1
+                """,
+                (SyncStatus.SYNCED.value,),
+            ).fetchone()
+        if not row:
+            return None
+        return _parse_utc(row["synced_at"])
+
     def get_event_count(self, sync_status: SyncStatus | None = None) -> int:
         with database_connection(self.database_path) as connection:
             if sync_status is None:

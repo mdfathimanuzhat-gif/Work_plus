@@ -11,6 +11,7 @@ from app.config import load_settings
 from app.detectors.idle_detector import IdleDetector
 from app.detectors.power_detector import (
     ENDSESSION_LOGOFF,
+    ENDSESSION_RESTART,
     PBT_APMRESUMESUSPEND,
     PBT_APMSUSPEND,
     WM_ENDSESSION,
@@ -76,7 +77,10 @@ def test_power_and_end_session_mapping() -> None:
     assert map_power_broadcast(PBT_APMRESUMESUSPEND) is EventType.SYSTEM_WAKE
     assert map_end_session(1, ENDSESSION_LOGOFF) is EventType.WINDOWS_LOGOUT
     assert map_end_session(1, 0) is EventType.SYSTEM_SHUTDOWN
-    assert map_end_session(1, 0, restart_requested=True) is EventType.SYSTEM_RESTART
+    assert map_end_session(1, 0, restart_requested=None) is EventType.SYSTEM_SHUTDOWN
+    # Heuristics must not override a documented shutdown message.
+    assert map_end_session(1, 0, restart_requested=True) is EventType.SYSTEM_SHUTDOWN
+    assert map_end_session(1, ENDSESSION_RESTART) is EventType.SYSTEM_RESTART
     assert map_end_session(0, 0) is None
 
 

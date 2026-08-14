@@ -39,25 +39,12 @@ def is_windows() -> bool:
     return sys.platform == "win32"
 
 
-def _restart_requested() -> bool | None:
-    """Best-effort reboot detection. Returns None when unknown."""
-    try:
-        import winreg
-
-        winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired",
-        )
-        return True
-    except (OSError, ImportError):
-        return None
-
-
 class Win32EventLoop:
     """Background Win32 message pump. No-op to construct on non-Windows."""
 
-    def __init__(self, record: RecordFn) -> None:
+    def __init__(self, record: RecordFn, *, on_session_ending: Callable[[], None] | None = None) -> None:
         self._record = record
+        self._on_session_ending = on_session_ending
         self._thread: threading.Thread | None = None
         self._hwnd = None
         self._stop = threading.Event()
@@ -69,7 +56,7 @@ class Win32EventLoop:
         if self._thread and self._thread.is_alive():
             return
         self._stop.clear()
-        self._thread = threading.Thread(target=self._run, name="workpulse-win32", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="workpulse-win32", daemon=False)
         self._thread.start()
 
     def stop(self) -> None:
@@ -100,14 +87,23 @@ class Win32EventLoop:
                     self._safe_record(event_type, wparam=wparam, source="power")
                 return
             if msg == WM_ENDSESSION:
-                restart = _restart_requested()
-                event_type = map_end_session(wparam, lparam, restart_requested=restart)
+                # WM_ENDSESSION wParam=TRUE, lParam=0 is a session end with no
+                # flags. Microsoft does not document a restart-vs-shutdown bit
+                # here. Always SYSTEM_SHUTDOWN for that message; never consult
+                # machine-wide reboot hints (they break this dispatch on PCs
+                # with a pending Windows Update reboot).
+                event_type = map_end_session(int(wparam), int(lparam) & 0xFFFFFFFF)
                 if event_type is not None:
-                    metadata = end_session_metadata(wparam, lparam, restart_requested=restart)
+                    metadata = end_session_metadata(wparam, lparam)
                     self._safe_record(event_type, source="end_session", **metadata)
+                if wparam and self._on_session_ending is not None:
+                    try:
+                        self._on_session_ending()
+                    except Exception:
+                        logger.exception("Session-ending callback failed")
                 return
             if msg == WM_QUERYENDSESSION:
-                logger.info("WM_QUERYENDSESSION received wparam=%s lparam=%s", wparam, lparam)
+                logger.info("WM_QUERYENDSESSION received; persisting locally takes priority over sync")
         except Exception:
             logger.exception("Failed handling Win32 message %s", msg)
 

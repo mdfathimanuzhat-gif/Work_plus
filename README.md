@@ -156,7 +156,8 @@ pip install -r requirements.txt
 python main.py --test --once
 ```
 
-Live Windows detection is `python main.py`. See [docs/desktop-agent.md](docs/desktop-agent.md).
+Live Windows detection is `python main.py` (runs until stopped). Health: `python main.py --status`.
+See [docs/desktop-agent.md](docs/desktop-agent.md) and [docs/windows-testing.md](docs/windows-testing.md).
 
 ### 4. Docker
 

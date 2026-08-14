@@ -9,9 +9,16 @@
         ENDSESSION_LOGOFF       = 0x80000000 -> WINDOWS_LOGOUT
         otherwise shutdown/restart
 
-Restart vs shutdown is best-effort: Windows does not always expose the reboot
-flag to a user-mode listener. When the restart flag cannot be determined, the
-event is SYSTEM_SHUTDOWN with metadata noting the uncertainty.
+Restart vs shutdown is best-effort. WM_ENDSESSION wParam=TRUE means the session
+is ending; lParam ENDSESSION_LOGOFF means logoff. There is no documented Win32
+flag that reliably means "user chose Restart" versus "user chose Shut down".
+
+An undocumented lParam bit (ENDSESSION_RESTART) is honored when set. Machine-
+wide hints such as Windows Update `RebootRequired` are not used: they stay set
+while pending updates exist and would mis-label a normal shutdown as a restart.
+
+When restart cannot be determined from this message, emit SYSTEM_SHUTDOWN
+(session ended; machine is going down) and record restart_requested as None.
 """
 
 from __future__ import annotations
@@ -46,25 +53,45 @@ def map_power_broadcast(wparam: int) -> EventType | None:
     return mapping.get(int(wparam))
 
 
+def _unsigned_lparam(lparam: int) -> int:
+    """WM_ENDSESSION lParam is a 32-bit flags value (may arrive signed)."""
+    return int(lparam) & 0xFFFFFFFF
+
+
 def map_end_session(wparam: int, lparam: int, *, restart_requested: bool | None = None) -> EventType | None:
     """Map WM_ENDSESSION to logout, shutdown, or restart.
 
     `wparam` is FALSE if the session is not actually ending.
+
+    Documented lParam flags are ENDSESSION_LOGOFF, ENDSESSION_CRITICAL, and
+    ENDSESSION_CLOSEAPP. wParam=TRUE with lParam=0 is a normal shutdown.
+    External heuristics (including `restart_requested`) must not override that:
+    they caused SYSTEM_RESTART on machines with a pending Windows Update reboot.
+
+    SYSTEM_RESTART is emitted only when this message's lParam has the optional
+    restart bit. `restart_requested=True` alone is not enough.
     """
-    if not wparam:
+    if not int(wparam):
         return None
-    if lparam & ENDSESSION_LOGOFF:
+    flags = _unsigned_lparam(lparam)
+    # Canonical unit-test / documented shutdown: wParam TRUE, no lParam flags.
+    if flags == 0:
+        return EventType.SYSTEM_SHUTDOWN
+    if flags & ENDSESSION_LOGOFF:
         return EventType.WINDOWS_LOGOUT
-    if restart_requested is True or (lparam & ENDSESSION_RESTART):
+    if flags & ENDSESSION_RESTART:
         return EventType.SYSTEM_RESTART
     return EventType.SYSTEM_SHUTDOWN
 
 
 def end_session_metadata(wparam: int, lparam: int, *, restart_requested: bool | None = None) -> dict[str, object]:
+    flags = _unsigned_lparam(lparam)
+    restart_from_message = bool(flags & ENDSESSION_RESTART)
     return {
         "wparam": int(wparam),
         "lparam": int(lparam),
-        "end_session_logoff": bool(lparam & ENDSESSION_LOGOFF),
-        "end_session_critical": bool(lparam & ENDSESSION_CRITICAL),
-        "restart_requested": restart_requested,
+        "end_session_logoff": bool(flags & ENDSESSION_LOGOFF),
+        "end_session_critical": bool(flags & ENDSESSION_CRITICAL),
+        "end_session_restart_bit": restart_from_message,
+        "restart_requested": True if restart_from_message else None,
     }
