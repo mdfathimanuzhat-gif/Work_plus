@@ -19,6 +19,8 @@ from app.schemas.agent import (
     AgentEventResult,
 )
 from app.services.device_auth_service import AuthenticatedDevice
+from app.services import attendance_service
+from app.repositories import employee as employee_repository
 
 logger = logging.getLogger("workpulse.agent.ingest")
 
@@ -76,6 +78,15 @@ def ingest_event_batch(
     accepted = sum(1 for row in results if row.status == "accepted")
     duplicates = sum(1 for row in results if row.status == "duplicate")
     failed = sum(1 for row in results if row.status == "failed")
+    accepted_times = [
+        item.event_timestamp
+        for item, row in zip(payload.events, results, strict=False)
+        if row.status == "accepted"
+    ]
+    if accepted_times:
+        employee = employee_repository.get_employee_by_id(session, device.employee_id)
+        if employee is not None:
+            attendance_service.recalculate_for_event_times(session, employee, accepted_times)
     logger.info(
         "Agent ingest device=%s employee=%s accepted=%s duplicates=%s failed=%s count=%s",
         device.device_identifier,

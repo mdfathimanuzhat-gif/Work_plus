@@ -17,7 +17,8 @@ def get_device_by_id(session: Session, device_id: uuid.UUID) -> Device | None:
     return session.scalar(
         select(Device)
         .options(
-            selectinload(Device.employee).selectinload(Employee.employee_roles).selectinload(EmployeeRole.role)
+            selectinload(Device.employee).selectinload(Employee.organization),
+            selectinload(Device.employee).selectinload(Employee.employee_roles).selectinload(EmployeeRole.role),
         )
         .where(Device.id == device_id)
     )
