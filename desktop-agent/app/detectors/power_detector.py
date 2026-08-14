@@ -74,6 +74,9 @@ def map_end_session(wparam: int, lparam: int, *, restart_requested: bool | None 
     if not int(wparam):
         return None
     flags = _unsigned_lparam(lparam)
+    # Canonical unit-test / documented shutdown: wParam TRUE, no lParam flags.
+    if flags == 0:
+        return EventType.SYSTEM_SHUTDOWN
     if flags & ENDSESSION_LOGOFF:
         return EventType.WINDOWS_LOGOUT
     if flags & ENDSESSION_RESTART:

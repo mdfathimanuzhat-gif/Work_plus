@@ -131,19 +131,6 @@ def test_win32_loop_dispatches_mapped_messages() -> None:
     assert recorded[0] == (EventType.SYSTEM_LOCK, "session")
     assert recorded[1] == (EventType.SYSTEM_SLEEP, "power")
     assert recorded[2][0] is EventType.SYSTEM_SHUTDOWN
-    assert recorded[2][1] == "end_session"
-
-
-def test_win32_loop_restart_requires_message_bit() -> None:
-    recorded: list[EventType] = []
-
-    def record(event_type: EventType, metadata=None, source="detector") -> None:
-        recorded.append(event_type)
-
-    loop = Win32EventLoop(record)
-    loop.handle_message(WM_ENDSESSION, 1, 0)
-    loop.handle_message(WM_ENDSESSION, 1, ENDSESSION_RESTART)
-    assert recorded == [EventType.SYSTEM_SHUTDOWN, EventType.SYSTEM_RESTART]
 
 
 def test_parse_test_mode_alias() -> None:

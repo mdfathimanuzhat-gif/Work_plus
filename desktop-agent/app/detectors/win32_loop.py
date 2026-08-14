@@ -87,10 +87,12 @@ class Win32EventLoop:
                     self._safe_record(event_type, wparam=wparam, source="power")
                 return
             if msg == WM_ENDSESSION:
-                # Map only from this WM_ENDSESSION. wParam=TRUE, lParam=0 is
-                # SYSTEM_SHUTDOWN. Do not pass restart heuristics; they override
-                # the message and mis-label shutdown as restart.
-                event_type = map_end_session(wparam, lparam)
+                # WM_ENDSESSION wParam=TRUE, lParam=0 is a session end with no
+                # flags. Microsoft does not document a restart-vs-shutdown bit
+                # here. Always SYSTEM_SHUTDOWN for that message; never consult
+                # machine-wide reboot hints (they break this dispatch on PCs
+                # with a pending Windows Update reboot).
+                event_type = map_end_session(int(wparam), int(lparam) & 0xFFFFFFFF)
                 if event_type is not None:
                     metadata = end_session_metadata(wparam, lparam)
                     self._safe_record(event_type, source="end_session", **metadata)
