@@ -2,17 +2,18 @@
 
 WorkPulse is a company-specific **employee attendance and timesheet management** system. It is an online web application with a Windows desktop agent for automatic attendance tracking.
 
-This repository currently contains the **project foundation only**: application layout, configuration, health check, and Docker wiring. Attendance tracking, timesheets, dashboards, reports, notifications, location tracking, and the desktop agent behavior are not implemented yet.
+This repository currently includes project foundation, the database schema, JWT authentication/RBAC, and employee/department/team management. Attendance tracking, timesheets, dashboards, reports, notifications, location tracking, and the desktop agent behavior are not implemented yet.
 
-## Roles (planned)
+## Roles
 
-Access will be strictly role-based in later phases:
+Access is role-based. Attendance and timesheet scopes are reserved for later phases.
 
-| Role | Scope |
+| Role | Current people-management scope |
 | --- | --- |
-| Employee | Own attendance, hours, timesheets, and history only |
-| Team lead | Assigned team only; review/approve/reject team timesheets |
-| HR | Organization-wide employees, departments, teams, attendance, timesheets, reports, and access |
+| Employee | Own profile only |
+| Team lead | Assigned team only |
+| HR | Organization-wide employees, departments, and teams |
+| Admin | Administrative employee-management operations when present |
 
 ## Technology stack
 
@@ -20,7 +21,7 @@ Access will be strictly role-based in later phases:
 - **Backend:** Python, FastAPI, Pydantic, SQLAlchemy
 - **Database:** PostgreSQL
 - **Migrations:** Alembic
-- **Authentication (later):** JWT and secure password hashing
+- **Authentication:** JWT and Argon2id password hashing
 - **Desktop agent (later):** Python, Windows-compatible, SQLite for local events
 - **Deployment:** Docker, Docker Compose, Nginx, Ubuntu VPS
 
@@ -30,12 +31,12 @@ Access will be strictly role-based in later phases:
 .
 ├── backend/                 FastAPI application
 │   ├── app/
-│   │   ├── api/             HTTP routers (health only for now)
+│   │   ├── api/             HTTP routers
 │   │   ├── core/            Settings and logging
-│   │   ├── models/          SQLAlchemy schema (Phase 2)
-│   │   ├── schemas/         Pydantic schemas (later)
-│   │   ├── services/        Business logic (later)
-│   │   ├── repositories/    Data access (later)
+│   │   ├── models/          SQLAlchemy schema
+│   │   ├── schemas/         Pydantic schemas
+│   │   ├── services/        Business logic
+│   │   ├── repositories/    Data access
 │   │   ├── database/        Engine, session, declarative base
 │   │   └── main.py
 │   ├── alembic/             Alembic migrations
@@ -59,7 +60,7 @@ Access will be strictly role-based in later phases:
 - **Settings from the environment:** `DATABASE_URL`, `SECRET_KEY`, and related values come from env vars / `.env`. Nothing secret is committed.
 - **Alembic uses the app metadata:** `alembic/env.py` reads `DATABASE_URL` and `Base.metadata` so migrations stay aligned with models.
 - **Health check is liveness-only:** `GET /api/health` returns `{"status":"ok"}` without querying PostgreSQL, so the API process can be probed independently of the database.
-- **Frontend auth is a placeholder:** React Router and a `ProtectedRoute` wrapper are in place; JWT login is not implemented and the guard does not fake a session.
+- **Frontend auth:** Login stores access/refresh tokens in `sessionStorage` and loads `/api/auth/me`. Route menus are role-based; authorization is enforced on the API.
 - **Desktop agent is a skeleton:** entrypoint and folders only; it does not pretend to capture Windows events.
 - **Compose credentials are required:** `docker compose up` expects a local `.env` (from `.env.example`). Postgres password and `DATABASE_URL` are not hard-coded in images.
 
@@ -169,7 +170,16 @@ DATABASE_URL=postgresql+psycopg://workpulse:YOUR_PASSWORD@db:5432/workpulse
 | POST | `/api/auth/refresh` | Rotate tokens |
 | POST | `/api/auth/logout` | Revoke access and refresh tokens |
 | GET | `/api/auth/me` | Current account, roles, and permissions |
-| GET | `/api/employees` | Employees visible to the caller |
+| GET | `/api/employees` | Employees visible to the caller (search/filter query params) |
+| POST | `/api/employees` | Create employee (HR / Admin) |
+| GET | `/api/employees/me` | Authenticated employee profile |
 | GET | `/api/employees/{employee_id}` | One employee if the caller is allowed to view them |
+| PATCH | `/api/employees/{employee_id}` | Update employee (self: limited fields; HR / Admin: management fields) |
+| POST | `/api/employees/{employee_id}/deactivate` | Deactivate employee (HR / Admin) |
+| GET/POST | `/api/departments` | List / create departments |
+| PATCH | `/api/departments/{department_id}` | Update department |
+| GET/POST | `/api/teams` | List / create teams |
+| GET/PATCH | `/api/teams/{team_id}` | Team details / update |
+| GET | `/api/teams/{team_id}/members` | Team members visible to the caller |
 
-Authentication details are in [docs/authentication.md](docs/authentication.md). Attendance and timesheet APIs are not implemented yet.
+Authentication is in [docs/authentication.md](docs/authentication.md). People management is in [docs/employee-management.md](docs/employee-management.md). Attendance and timesheet APIs are not implemented yet.

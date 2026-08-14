@@ -185,13 +185,17 @@ cd backend
 python scripts/seed_dev.py
 ```
 
-The script refuses to run when `ENVIRONMENT` is not a development value. It does not store passwords. Placeholders:
+The script refuses to run when `ENVIRONMENT` is not a development value. It does
+not store passwords. Login hashes are created only when `DEV_SEED_PASSWORD` is
+set. Development placeholders:
 
-- Organization `WP-DEV`
-- Department Engineering / team Platform
-- HR `hr.dev@workpulse.local` (`HR-001`)
-- Team lead `lead.dev@workpulse.local` (`TL-001`)
-- Employee `employee.dev@workpulse.local` (`EMP-001`)
+- Organization `FIN-DEV` — Finance Company - Development
+- Department Finance Operations (`FINOPS`) / Finance Operations Team
+- HR `sidrah.hunain@workpulse.local` (`HR001`)
+- Team lead `nayab.rasul@workpulse.local` (`EMP003`)
+- Employees `israh.zunain@workpulse.local` (`EMP001`), `sameer@workpulse.local` (`EMP002`)
+
+See [employee-management.md](employee-management.md).
 
 ## Tests
 

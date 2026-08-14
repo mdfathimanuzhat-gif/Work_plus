@@ -98,7 +98,11 @@ Resource checks go through `app.services.authorization` (`can_view_employee`, `e
 | POST | `/api/auth/logout` | Optional bearer + refresh body | `{message: "Logged out"}` |
 | GET | `/api/auth/me` | Access token | Account + employee summary, roles, permissions |
 | GET | `/api/employees` | Access token | Employees visible to the caller |
+| GET | `/api/employees/me` | Access token | Authenticated employee profile |
 | GET | `/api/employees/{employee_id}` | Access token | One employee if allowed |
+
+Employee create/update, departments, and teams are documented in
+[employee-management.md](employee-management.md).
 
 Errors:
 

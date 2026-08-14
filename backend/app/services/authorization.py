@@ -82,6 +82,38 @@ def can_view_employee(user: AuthenticatedUser, target: Employee) -> bool:
     return False
 
 
+def can_manage_employees(user: AuthenticatedUser) -> bool:
+    return has_role(user, "ADMIN") or has_permission(user, "employee.manage_organization")
+
+
+def can_manage_departments(user: AuthenticatedUser) -> bool:
+    return has_role(user, "ADMIN") or has_permission(user, "department.manage")
+
+
+def can_manage_teams(user: AuthenticatedUser) -> bool:
+    return has_role(user, "ADMIN") or has_permission(user, "team.manage")
+
+
+def can_assign_roles(user: AuthenticatedUser) -> bool:
+    return has_role(user, "ADMIN") or has_permission(user, "access.manage")
+
+
+def can_view_team(user: AuthenticatedUser, team_id: uuid.UUID) -> bool:
+    if can_manage_teams(user) or can_manage_employees(user):
+        return True
+    if team_id in user.led_team_ids:
+        return True
+    return user.employee.team_id == team_id
+
+
+def can_view_department(user: AuthenticatedUser, department_id: uuid.UUID) -> bool:
+    if can_manage_departments(user) or can_manage_employees(user):
+        return True
+    if user.employee.department_id == department_id:
+        return True
+    return False
+
+
 def ensure_can_view_employee(user: AuthenticatedUser, target: Employee | None) -> Employee:
     if target is None or target.organization_id != user.organization_id:
         raise APIError(404, "not_found", "Employee not found")

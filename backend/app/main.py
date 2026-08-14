@@ -9,8 +9,10 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.auth import router as auth_router
+from app.api.departments import router as departments_router
 from app.api.employees import router as employees_router
 from app.api.health import router as health_router
+from app.api.teams import router as teams_router
 from app.core.config import get_settings
 from app.core.errors import (
     APIError,
@@ -46,6 +48,8 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.include_router(health_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(employees_router, prefix="/api")
+app.include_router(departments_router, prefix="/api")
+app.include_router(teams_router, prefix="/api")
 
 
 @app.exception_handler(Exception)

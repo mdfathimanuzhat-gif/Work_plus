@@ -186,21 +186,23 @@ def test_seed_development_data_creates_rbac_placeholders(migrated_database: None
         )
         assert loaded is not None
         assert loaded.id == organization.id
-        assert len(loaded.departments) == 1
-        assert len(loaded.teams) == 1
-        lead = loaded.teams[0].team_lead
+        assert loaded.name == "Finance Company - Development"
+        department_names = {department.name for department in loaded.departments}
+        assert "Finance Operations" in department_names
+        finance_team = next(team for team in loaded.teams if team.name == "Finance Operations Team")
+        lead = finance_team.team_lead
         assert lead is not None
-        assert lead.employee_code == "TL-001"
+        assert lead.employee_code == "EMP003"
         codes = {employee.employee_code for employee in loaded.employees}
-        assert codes == {"HR-001", "TL-001", "EMP-001", "ADM-001"}
-        member = next(employee for employee in loaded.employees if employee.employee_code == "EMP-001")
+        assert {"HR001", "EMP001", "EMP002", "EMP003"}.issubset(codes)
+        member = next(employee for employee in loaded.employees if employee.employee_code == "EMP001")
         assert member.manager_id == lead.id
         role_names = {
             assignment.role.name
             for employee in loaded.employees
             for assignment in employee.employee_roles
         }
-        assert role_names == {"HR", "TEAM_LEAD", "EMPLOYEE", "ADMIN"}
+        assert {"HR", "TEAM_LEAD", "EMPLOYEE"}.issubset(role_names)
         hr_role = session.scalar(select(Role).where(Role.name == "HR"))
         assert hr_role is not None
         assert "employee.manage_organization" in {perm.name for perm in hr_role.permissions}

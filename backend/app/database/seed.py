@@ -1,10 +1,7 @@
-"""Development-only seed data.
+"""Development-only seed data for Finance Company - Development.
 
-Creates one organization, department, team, and employee placeholders
-(HR, team lead, employee, admin) with roles and permissions.
-
-Login accounts are created only when DEV_SEED_PASSWORD is set. That value is
-read from the environment and is never committed.
+Creates exactly four demo people. Login accounts are created when
+DEV_SEED_PASSWORD is set. That value is never committed.
 """
 
 from __future__ import annotations
@@ -27,7 +24,8 @@ from app.services.auth_service import create_account
 
 logger = logging.getLogger(__name__)
 
-DEV_ORGANIZATION_CODE = "WP-DEV"
+DEV_ORGANIZATION_CODE = "FIN-DEV"
+DEV_ORGANIZATION_NAME = "Finance Company - Development"
 
 ROLE_DEFINITIONS: tuple[tuple[str, str], ...] = (
     ("ADMIN", "Organization administrator"),
@@ -109,8 +107,127 @@ def _get_or_create_permission(session: Session, name: str, description: str) -> 
     return permission
 
 
+def _get_or_create_department(
+    session: Session,
+    organization: Organization,
+    *,
+    name: str,
+    code: str,
+    description: str,
+) -> Department:
+    department = session.scalar(
+        select(Department).where(
+            Department.organization_id == organization.id,
+            Department.code == code,
+        )
+    )
+    if department is None:
+        department = Department(
+            organization_id=organization.id,
+            name=name,
+            code=code,
+            description=description,
+            is_active=True,
+        )
+        session.add(department)
+        session.flush()
+        return department
+    department.name = name
+    department.description = description
+    department.is_active = True
+    session.flush()
+    return department
+
+
+def _get_or_create_team(
+    session: Session,
+    organization: Organization,
+    *,
+    name: str,
+    description: str,
+    department: Department,
+) -> Team:
+    team = session.scalar(
+        select(Team).where(Team.organization_id == organization.id, Team.name == name)
+    )
+    if team is None:
+        team = Team(
+            organization_id=organization.id,
+            department_id=department.id,
+            name=name,
+            description=description,
+            is_active=True,
+        )
+        session.add(team)
+        session.flush()
+        return team
+    team.department_id = department.id
+    team.description = description
+    team.is_active = True
+    session.flush()
+    return team
+
+
+def _get_or_create_employee(
+    session: Session,
+    organization: Organization,
+    *,
+    employee_code: str,
+    first_name: str,
+    last_name: str,
+    email: str,
+    department: Department | None,
+    team: Team | None,
+    manager: Employee | None,
+    role: Role,
+) -> Employee:
+    employee = session.scalar(
+        select(Employee).where(
+            Employee.organization_id == organization.id,
+            Employee.employee_code == employee_code,
+        )
+    )
+    if employee is None:
+        employee = Employee(
+            organization_id=organization.id,
+            employee_code=employee_code,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            phone=None,
+            department_id=department.id if department else None,
+            team_id=team.id if team else None,
+            manager_id=manager.id if manager else None,
+            joining_date=date(2024, 6, 1),
+            employment_status=EmploymentStatus.ACTIVE,
+            is_active=True,
+        )
+        session.add(employee)
+        session.flush()
+    else:
+        employee.first_name = first_name
+        employee.last_name = last_name
+        employee.email = email
+        employee.department_id = department.id if department else None
+        employee.team_id = team.id if team else None
+        employee.manager_id = manager.id if manager else None
+        employee.is_active = True
+        employee.employment_status = EmploymentStatus.ACTIVE
+        session.flush()
+    has_role = session.scalar(
+        select(EmployeeRole).where(
+            EmployeeRole.employee_id == employee.id,
+            EmployeeRole.role_id == role.id,
+        )
+    )
+    if has_role is None:
+        session.add(EmployeeRole(employee_id=employee.id, role_id=role.id))
+        session.flush()
+    return employee
+
+
 def seed_development_data(session: Session) -> Organization:
-    """Insert idempotent local-development reference data."""
+    """Insert idempotent finance-company demo data."""
     roles = {
         name: _get_or_create_role(session, name, description)
         for name, description in ROLE_DEFINITIONS
@@ -119,7 +236,6 @@ def seed_development_data(session: Session) -> Organization:
         name: _get_or_create_permission(session, name, description)
         for name, description in PERMISSION_DEFINITIONS
     }
-
     for role_name, permission_names in ROLE_PERMISSION_MAP.items():
         role = roles[role_name]
         current = {permission.name for permission in role.permissions}
@@ -127,117 +243,95 @@ def seed_development_data(session: Session) -> Organization:
             if permission_name not in current:
                 role.permissions.append(permissions[permission_name])
 
-    organization = session.scalar(
-        select(Organization).where(Organization.code == DEV_ORGANIZATION_CODE)
-    )
-    if organization is not None:
-        logger.info("Development organization %s already exists; ensuring people and accounts", DEV_ORGANIZATION_CODE)
-        _ensure_admin_employee(session, organization, roles)
-        _seed_development_accounts(session, organization)
-        return organization
+    organization = session.scalar(select(Organization).where(Organization.code == DEV_ORGANIZATION_CODE))
+    if organization is None:
+        organization = Organization(
+            name=DEV_ORGANIZATION_NAME,
+            code=DEV_ORGANIZATION_CODE,
+            email="dev@finance.local",
+            address="Development data only",
+            timezone="UTC",
+            is_active=True,
+        )
+        session.add(organization)
+        session.flush()
+    else:
+        organization.name = DEV_ORGANIZATION_NAME
 
-    organization = Organization(
-        name="WorkPulse Development",
-        code=DEV_ORGANIZATION_CODE,
-        email="dev@workpulse.local",
-        phone=None,
-        address="Local development only",
-        timezone="UTC",
-        is_active=True,
+    department = _get_or_create_department(
+        session,
+        organization,
+        name="Finance Operations",
+        code="FINOPS",
+        description="Finance operations department",
     )
-    session.add(organization)
-    session.flush()
+    team = _get_or_create_team(
+        session,
+        organization,
+        name="Finance Operations Team",
+        description="Finance operations team",
+        department=department,
+    )
 
-    department = Department(
-        organization_id=organization.id,
-        name="Engineering",
-        code="ENG",
-        description="Development department",
-        is_active=True,
+    hr = _get_or_create_employee(
+        session,
+        organization,
+        employee_code="HR001",
+        first_name="Sidrah",
+        last_name="Hunain",
+        email="sidrah.hunain@workpulse.local",
+        department=department,
+        team=None,
+        manager=None,
+        role=roles["HR"],
     )
-    session.add(department)
-    session.flush()
-
-    team = Team(
-        organization_id=organization.id,
-        department_id=department.id,
-        name="Platform",
-        description="Platform team",
-        is_active=True,
+    team_lead = _get_or_create_employee(
+        session,
+        organization,
+        employee_code="EMP003",
+        first_name="Nayab",
+        last_name="Rasul",
+        email="nayab.rasul@workpulse.local",
+        department=department,
+        team=team,
+        manager=None,
+        role=roles["TEAM_LEAD"],
     )
-    session.add(team)
-    session.flush()
-
-    hr_employee = Employee(
-        organization_id=organization.id,
-        employee_code="HR-001",
-        first_name="Hari",
-        last_name="Rao",
-        email="hr.dev@workpulse.local",
-        department_id=department.id,
-        joining_date=date(2024, 1, 8),
-        employment_status=EmploymentStatus.ACTIVE,
-        is_active=True,
-    )
-    team_lead = Employee(
-        organization_id=organization.id,
-        employee_code="TL-001",
-        first_name="Leah",
-        last_name="Turner",
-        email="lead.dev@workpulse.local",
-        department_id=department.id,
-        team_id=team.id,
-        joining_date=date(2024, 2, 12),
-        employment_status=EmploymentStatus.ACTIVE,
-        is_active=True,
-    )
-    session.add_all([hr_employee, team_lead])
-    session.flush()
-
     team.team_lead_id = team_lead.id
-
-    employee = Employee(
-        organization_id=organization.id,
-        employee_code="EMP-001",
-        first_name="Eden",
-        last_name="Patel",
-        email="employee.dev@workpulse.local",
-        department_id=department.id,
-        team_id=team.id,
-        manager_id=team_lead.id,
-        joining_date=date(2024, 3, 4),
-        employment_status=EmploymentStatus.ACTIVE,
-        is_active=True,
-    )
-    session.add(employee)
     session.flush()
 
-    session.add_all(
-        [
-            EmployeeRole(employee_id=hr_employee.id, role_id=roles["HR"].id),
-            EmployeeRole(employee_id=team_lead.id, role_id=roles["TEAM_LEAD"].id),
-            EmployeeRole(employee_id=employee.id, role_id=roles["EMPLOYEE"].id),
-        ]
+    _get_or_create_employee(
+        session,
+        organization,
+        employee_code="EMP001",
+        first_name="Israh",
+        last_name="Zunain",
+        email="israh.zunain@workpulse.local",
+        department=department,
+        team=team,
+        manager=team_lead,
+        role=roles["EMPLOYEE"],
     )
-    session.flush()
+    _get_or_create_employee(
+        session,
+        organization,
+        employee_code="EMP002",
+        first_name="Sameer",
+        last_name="",
+        email="sameer@workpulse.local",
+        department=department,
+        team=team,
+        manager=team_lead,
+        role=roles["EMPLOYEE"],
+    )
 
-    admin_employee = Employee(
-        organization_id=organization.id,
-        employee_code="ADM-001",
-        first_name="Asha",
-        last_name="Admin",
-        email="admin.dev@workpulse.local",
-        department_id=department.id,
-        joining_date=date(2024, 1, 2),
-        employment_status=EmploymentStatus.ACTIVE,
-        is_active=True,
-    )
-    session.add(admin_employee)
-    session.flush()
-    session.add(EmployeeRole(employee_id=admin_employee.id, role_id=roles["ADMIN"].id))
-    session.flush()
-    logger.info("Seeded development organization %s", DEV_ORGANIZATION_CODE)
     _seed_development_accounts(session, organization)
+    logger.info(
+        "Ensured demo organization %s with HR %s and team lead %s",
+        DEV_ORGANIZATION_CODE,
+        hr.employee_code,
+        team_lead.employee_code,
+    )
     return organization
 
 
@@ -246,7 +340,6 @@ def _seed_development_accounts(session: Session, organization: Organization) -> 
     if not password:
         logger.info("DEV_SEED_PASSWORD is not set; skipping login accounts")
         return
-
     employees = list(session.scalars(select(Employee).where(Employee.organization_id == organization.id)))
     for employee in employees:
         if get_account_by_email(session, employee.email) is not None:
@@ -258,32 +351,3 @@ def _seed_development_accounts(session: Session, organization: Organization) -> 
             password=password,
         )
     logger.info("Ensured development login accounts for organization %s", organization.code)
-
-
-def _ensure_admin_employee(session: Session, organization: Organization, roles: dict[str, Role]) -> None:
-    existing = session.scalar(
-        select(Employee).where(
-            Employee.organization_id == organization.id,
-            Employee.employee_code == "ADM-001",
-        )
-    )
-    if existing is not None:
-        return
-    department = session.scalar(
-        select(Department).where(Department.organization_id == organization.id).limit(1)
-    )
-    admin_employee = Employee(
-        organization_id=organization.id,
-        employee_code="ADM-001",
-        first_name="Asha",
-        last_name="Admin",
-        email="admin.dev@workpulse.local",
-        department_id=department.id if department else None,
-        joining_date=date(2024, 1, 2),
-        employment_status=EmploymentStatus.ACTIVE,
-        is_active=True,
-    )
-    session.add(admin_employee)
-    session.flush()
-    session.add(EmployeeRole(employee_id=admin_employee.id, role_id=roles["ADMIN"].id))
-    session.flush()
