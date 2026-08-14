@@ -2,11 +2,11 @@
 
 WorkPulse is a company-specific **employee attendance and timesheet management** system. It is an online web application with a Windows desktop agent for automatic attendance tracking.
 
-This repository currently includes project foundation, the database schema, JWT authentication/RBAC, employee/department/team management, a Windows desktop agent that records local session events, and synchronization of those events to PostgreSQL. Attendance totals, timesheets, dashboards, reports, notifications, and location tracking are not implemented yet.
+This repository currently includes project foundation, the database schema, JWT authentication/RBAC, employee/department/team management, a Windows desktop agent that records and syncs session events, and a server-side attendance calculation engine. Timesheets, dashboards, reports, notifications, and location tracking are not implemented yet.
 
 ## Roles
 
-Access is role-based. Attendance and timesheet scopes are reserved for later phases.
+Access is role-based. Timesheet workflows are reserved for later phases.
 
 | Role | Current people-management scope |
 | --- | --- |
@@ -198,5 +198,10 @@ DATABASE_URL=postgresql+psycopg://workpulse:YOUR_PASSWORD@db:5432/workpulse
 | POST | `/api/agent/devices/enroll` | Register a desktop agent device (employee JWT) |
 | POST | `/api/agent/auth/token` | Issue a device JWT from identifier + secret |
 | POST | `/api/agent/events/batch` | Ingest a batch of agent events (device JWT) |
+| GET | `/api/attendance/me` | Own attendance for a date range |
+| GET | `/api/attendance/me/live` | Current session state from latest events |
+| GET | `/api/attendance/me/{date}` | Own attendance for one local date |
+| GET | `/api/attendance/team/{date}` | Team or organization attendance for a date |
+| GET | `/api/attendance/{employee_id}/{date}` | One employee's attendance if the caller may view them |
 
-Authentication is in [docs/authentication.md](docs/authentication.md). People management is in [docs/employee-management.md](docs/employee-management.md). Agent event sync is in [docs/event-sync.md](docs/event-sync.md). Attendance totals and timesheet APIs are not implemented yet.
+Authentication is in [docs/authentication.md](docs/authentication.md). People management is in [docs/employee-management.md](docs/employee-management.md). Agent event sync is in [docs/event-sync.md](docs/event-sync.md). Attendance calculation is in [docs/attendance-engine.md](docs/attendance-engine.md). Timesheet APIs are not implemented yet.

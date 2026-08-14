@@ -19,6 +19,13 @@ class AttendanceStatus(str, Enum):
     ON_LEAVE = "ON_LEAVE"
     HOLIDAY = "HOLIDAY"
     INCOMPLETE = "INCOMPLETE"
+    PARTIAL = "PARTIAL"
+
+
+class AttendanceSessionStatus(str, Enum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    CONTINUED = "CONTINUED"
 
 
 class AttendanceEventType(str, Enum):

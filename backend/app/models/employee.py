@@ -14,7 +14,7 @@ from app.models.enums import EmploymentStatus, pg_enum
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
-    from app.models.attendance import Attendance, AttendanceEvent
+    from app.models.attendance import Attendance, AttendanceEvent, AttendanceSession
     from app.models.audit_log import AuditLog
     from app.models.department import Department
     from app.models.device import Device
@@ -119,6 +119,10 @@ class Employee(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
     attendance_events: Mapped[list[AttendanceEvent]] = relationship(
+        back_populates="employee",
+        cascade="all, delete-orphan",
+    )
+    attendance_sessions: Mapped[list[AttendanceSession]] = relationship(
         back_populates="employee",
         cascade="all, delete-orphan",
     )

@@ -5,3 +5,4 @@
 - [Employee management](employee-management.md) — employees, departments, teams, demo users, and Phase 4 APIs
 - [Desktop agent](desktop-agent.md) — local Windows events, offline SQLite queue, and API sync
 - [Event synchronization](event-sync.md) — device auth, batch ingest, idempotency, and retries
+- [Attendance engine](attendance-engine.md) — daily sessions, working hours, and read-only APIs

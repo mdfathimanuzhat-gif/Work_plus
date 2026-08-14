@@ -32,8 +32,9 @@ Permissions live in tables (`roles`, `permissions`, `role_permissions`, `employe
 | `role_permissions` | Role ↔ permission many-to-many |
 | `employee_roles` | Employee ↔ role assignment |
 | `devices` | Registered endpoints for an employee |
-| `attendance` | One daily attendance summary per employee |
-| `attendance_events` | Fine-grained device/session events |
+| `attendance` | One daily attendance summary per employee (derived) |
+| `attendance_sessions` | Session slices that roll up into a daily attendance row |
+| `attendance_events` | Fine-grained device/session events (source of truth) |
 | `timesheets` | Employee time entries |
 | `timesheet_approvals` | Review history for a timesheet |
 | `locations` | Location snapshots (capture later) |
@@ -56,7 +57,9 @@ Role     *──* Permission           (via role_permissions)
 
 Employee 1──* Device
 Employee 1──* Attendance 1──* AttendanceEvent
+Employee 1──* Attendance 1──* AttendanceSession
 Employee 1──* AttendanceEvent
+Employee 1──* AttendanceSession
 Employee 1──* Timesheet 1──* TimesheetApproval
 Employee 1──* Location
 Employee 1──* Notification
@@ -153,7 +156,8 @@ Unique constraints already provide supporting indexes. Additional indexes:
 | Enum | Values |
 | --- | --- |
 | `employment_status` | ACTIVE, INACTIVE, ON_LEAVE, TERMINATED |
-| `attendance_status` | PRESENT, ABSENT, HALF_DAY, ON_LEAVE, HOLIDAY, INCOMPLETE |
+| `attendance_status` | PRESENT, ABSENT, HALF_DAY, ON_LEAVE, HOLIDAY, INCOMPLETE, PARTIAL |
+| `attendance_session_status` | OPEN, CLOSED, CONTINUED |
 | `attendance_event_type` | LOGIN, LOGOUT, LOCK, UNLOCK, SHUTDOWN, RESTART, SLEEP, WAKE, IDLE_START, IDLE_END |
 | `timesheet_status` | DRAFT, SUBMITTED, APPROVED, REJECTED |
 | `timesheet_approval_status` | PENDING, APPROVED, REJECTED |

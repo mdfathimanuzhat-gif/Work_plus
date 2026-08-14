@@ -18,13 +18,17 @@ def _detail_options() -> tuple:
         selectinload(Employee.team),
         selectinload(Employee.manager),
         selectinload(Employee.account),
+        selectinload(Employee.organization),
+        selectinload(Employee.led_teams),
         selectinload(Employee.employee_roles).selectinload(EmployeeRole.role),
     )
 
 
 def get_employee_by_id(session: Session, employee_id: uuid.UUID) -> Employee | None:
     return session.scalar(
-        select(Employee).options(*_detail_options()).where(Employee.id == employee_id)
+        select(Employee)
+        .options(*_detail_options())
+        .where(Employee.id == employee_id)
     )
 
 

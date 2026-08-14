@@ -1,12 +1,13 @@
 """SQLAlchemy models for the WorkPulse schema."""
 
-from app.models.attendance import Attendance, AttendanceEvent
+from app.models.attendance import Attendance, AttendanceEvent, AttendanceSession
 from app.models.audit_log import AuditLog
 from app.models.department import Department
 from app.models.device import Device
 from app.models.employee import Employee
 from app.models.enums import (
     AttendanceEventType,
+    AttendanceSessionStatus,
     AttendanceStatus,
     EmploymentStatus,
     LocationType,
@@ -27,6 +28,8 @@ __all__ = [
     "Attendance",
     "AttendanceEvent",
     "AttendanceEventType",
+    "AttendanceSession",
+    "AttendanceSessionStatus",
     "AttendanceStatus",
     "AuditLog",
     "Department",

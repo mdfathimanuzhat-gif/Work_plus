@@ -29,6 +29,7 @@ EXPECTED_TABLES = {
     "employee_roles",
     "devices",
     "attendance",
+    "attendance_sessions",
     "attendance_events",
     "timesheets",
     "timesheet_approvals",

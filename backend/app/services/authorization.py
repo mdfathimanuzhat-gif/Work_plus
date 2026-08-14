@@ -120,3 +120,26 @@ def ensure_can_view_employee(user: AuthenticatedUser, target: Employee | None) -
     if not can_view_employee(user, target):
         raise APIError(403, "forbidden", "You do not have access to this employee")
     return target
+
+
+def can_view_attendance(user: AuthenticatedUser, target: Employee) -> bool:
+    if target.organization_id != user.organization_id:
+        return False
+    if has_role(user, "ADMIN") or has_permission(user, "attendance.view_organization"):
+        return True
+    if target.id == user.employee_id and has_permission(user, "attendance.view_own"):
+        return True
+    if has_permission(user, "attendance.view_team"):
+        if user.employee.team_id is not None and target.team_id == user.employee.team_id:
+            return True
+        if target.team_id is not None and target.team_id in user.led_team_ids:
+            return True
+    return False
+
+
+def ensure_can_view_attendance(user: AuthenticatedUser, target: Employee | None) -> Employee:
+    if target is None or target.organization_id != user.organization_id:
+        raise APIError(404, "not_found", "Employee not found")
+    if not can_view_attendance(user, target):
+        raise APIError(403, "forbidden", "You do not have access to this attendance record")
+    return target
