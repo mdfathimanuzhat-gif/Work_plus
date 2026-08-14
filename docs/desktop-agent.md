@@ -118,8 +118,8 @@ after a future successful sync.
 | `SYSTEM_UNLOCK` | `WTS_SESSION_UNLOCK` |
 | `SYSTEM_SLEEP` | `WM_POWERBROADCAST` / `PBT_APMSUSPEND` |
 | `SYSTEM_WAKE` | `PBT_APMRESUMESUSPEND` or `PBT_APMRESUMEAUTOMATIC` |
-| `SYSTEM_SHUTDOWN` | `WM_ENDSESSION` (session ending, not logoff) |
-| `SYSTEM_RESTART` | `WM_ENDSESSION` when a restart is indicated (best-effort) |
+| `SYSTEM_SHUTDOWN` | `WM_ENDSESSION` with wParam TRUE and no logoff/restart bit (default when reboot cannot be proven) |
+| `SYSTEM_RESTART` | `WM_ENDSESSION` only when this message carries a restart indication (`ENDSESSION_RESTART`). Not inferred from Windows Update `RebootRequired`. |
 | `IDLE_START` | `GetLastInputInfo` idle time ≥ `IDLE_THRESHOLD_SECONDS` |
 | `IDLE_END` | Input resumes after idle, or the session is locked while idle |
 

@@ -39,20 +39,6 @@ def is_windows() -> bool:
     return sys.platform == "win32"
 
 
-def _restart_requested() -> bool | None:
-    """Best-effort reboot detection. Returns None when unknown."""
-    try:
-        import winreg
-
-        winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired",
-        )
-        return True
-    except (OSError, ImportError):
-        return None
-
-
 class Win32EventLoop:
     """Background Win32 message pump. No-op to construct on non-Windows."""
 
@@ -101,10 +87,13 @@ class Win32EventLoop:
                     self._safe_record(event_type, wparam=wparam, source="power")
                 return
             if msg == WM_ENDSESSION:
-                restart = _restart_requested()
-                event_type = map_end_session(wparam, lparam, restart_requested=restart)
+                # WM_ENDSESSION does not officially distinguish reboot from power-off.
+                # Map from this message only. Do not consult Windows Update
+                # RebootRequired — that key means a reboot is pending someday, not
+                # that this WM_ENDSESSION is a restart.
+                event_type = map_end_session(wparam, lparam)
                 if event_type is not None:
-                    metadata = end_session_metadata(wparam, lparam, restart_requested=restart)
+                    metadata = end_session_metadata(wparam, lparam)
                     self._safe_record(event_type, source="end_session", **metadata)
                 if wparam and self._on_session_ending is not None:
                     try:

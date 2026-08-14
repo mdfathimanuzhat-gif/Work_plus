@@ -9,9 +9,16 @@
         ENDSESSION_LOGOFF       = 0x80000000 -> WINDOWS_LOGOUT
         otherwise shutdown/restart
 
-Restart vs shutdown is best-effort: Windows does not always expose the reboot
-flag to a user-mode listener. When the restart flag cannot be determined, the
-event is SYSTEM_SHUTDOWN with metadata noting the uncertainty.
+Restart vs shutdown is best-effort. WM_ENDSESSION wParam=TRUE means the session
+is ending; lParam ENDSESSION_LOGOFF means logoff. There is no documented Win32
+flag that reliably means "user chose Restart" versus "user chose Shut down".
+
+An undocumented lParam bit (ENDSESSION_RESTART) is honored when set. Machine-
+wide hints such as Windows Update `RebootRequired` are not used: they stay set
+while pending updates exist and would mis-label a normal shutdown as a restart.
+
+When restart cannot be determined from this message, emit SYSTEM_SHUTDOWN
+(session ended; machine is going down) and record restart_requested as None.
 """
 
 from __future__ import annotations
@@ -50,6 +57,8 @@ def map_end_session(wparam: int, lparam: int, *, restart_requested: bool | None 
     """Map WM_ENDSESSION to logout, shutdown, or restart.
 
     `wparam` is FALSE if the session is not actually ending.
+    `restart_requested` is only True when the caller has evidence from this
+    message (or an explicit test). Unknown/None defaults to SYSTEM_SHUTDOWN.
     """
     if not wparam:
         return None
@@ -61,10 +70,13 @@ def map_end_session(wparam: int, lparam: int, *, restart_requested: bool | None 
 
 
 def end_session_metadata(wparam: int, lparam: int, *, restart_requested: bool | None = None) -> dict[str, object]:
+    if restart_requested is None and (lparam & ENDSESSION_RESTART):
+        restart_requested = True
     return {
         "wparam": int(wparam),
         "lparam": int(lparam),
         "end_session_logoff": bool(lparam & ENDSESSION_LOGOFF),
         "end_session_critical": bool(lparam & ENDSESSION_CRITICAL),
+        "end_session_restart_bit": bool(lparam & ENDSESSION_RESTART),
         "restart_requested": restart_requested,
     }

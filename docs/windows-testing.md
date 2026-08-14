@@ -141,7 +141,9 @@ Shut down or restart Windows while the agent is running.
   process exits.
 - Network sync is **not** required to finish. Leftover rows stay PENDING and
   upload on the next start.
-- Restart vs shutdown is best-effort; Windows does not always expose a reboot flag.
+- Restart vs shutdown is best-effort; `WM_ENDSESSION` with no logoff/restart
+  bits is stored as `SYSTEM_SHUTDOWN`. A pending Windows Update reboot is not
+  used as evidence.
 
 ## 12. Troubleshooting
 
@@ -172,7 +174,11 @@ Also: `device_identity.json`, `device_secret`, `agent.lock`, `status.json`
   be missing. The first event may be lock/unlock or idle. Documented; no fake login.
 - Fast User Switching / remote desktop extra sessions are not fully modeled.
 - Sleep/wake depend on `WM_POWERBROADCAST`; some devices skip messages.
-- Restart vs shutdown detection is best-effort.
+- Restart vs shutdown: `WM_ENDSESSION` does not officially say which. The agent
+  records `SYSTEM_SHUTDOWN` unless this message has `ENDSESSION_LOGOFF`
+  (logout) or the undocumented restart bit. A pending Windows Update reboot
+  (`RebootRequired`) is **not** treated as a restart — that key is often set
+  for days and would mis-label Shut down.
 - No Windows Service in this phase (development Startup shortcut is optional and reversible).
 - Packaging: `workpulse-agent.spec` is a PyInstaller starting point; do not bundle `.env`.
 
