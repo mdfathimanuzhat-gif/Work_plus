@@ -1,0 +1,2 @@
+# Optional SQL scripts (seed data, operational notes) can live here later.
+# Schema changes are managed by Alembic in backend/alembic/.
