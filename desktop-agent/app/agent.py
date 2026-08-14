@@ -1,4 +1,4 @@
-"""Compose detectors, event recording, and the console viewer."""
+"""Compose detectors, event recording, SQLite persistence, and the console viewer."""
 
 from __future__ import annotations
 
@@ -15,7 +15,14 @@ from app.logger import configure_logging
 from app.models import EventType
 from app.services.event_service import EventService
 from app.services.simulator import DEFAULT_SCENARIO, simulate_events
-from app.services.viewer import render_banner, render_event_line
+from app.services.viewer import (
+    render_banner,
+    render_event_line,
+    render_event_summary,
+    render_stored_event_line,
+)
+from app.storage.models import SyncStatus
+from app.storage.repository import EventRepository
 
 logger = logging.getLogger("workpulse.agent")
 
@@ -24,10 +31,15 @@ class DesktopAgent:
     def __init__(self, settings: AgentSettings, device: DeviceIdentity | None = None) -> None:
         self.settings = settings
         self.device = device or load_or_create_device_identity(settings)
-        self.service = EventService(self.device)
+        self.repository = EventRepository(settings.local_database_path)
+        self.service = EventService(self.device, repository=self.repository)
         self._idle: IdleDetector | None = None
         self._win32: Win32EventLoop | None = None
         self._print_lock = threading.Lock()
+        try:
+            self.repository.cleanup_synced_events(settings.LOCAL_EVENT_RETENTION_DAYS)
+        except Exception:
+            logger.exception("Synced-event retention cleanup failed")
 
     def attach_console(self) -> None:
         self.service.add_listener(self._print_event)
@@ -38,7 +50,7 @@ class DesktopAgent:
         if not isinstance(event, AgentEvent):
             return
         with self._print_lock:
-            print(render_event_line(event), flush=True)
+            print(render_event_line(event, SyncStatus.PENDING), flush=True)
 
     def _record(self, event_type: EventType, metadata: dict | None = None, source: str = "detector") -> object:
         return self.service.record(event_type, metadata=metadata, source=source)
@@ -72,10 +84,29 @@ class DesktopAgent:
 
     def print_banner(self, *, status: str) -> None:
         print(
-            render_banner(self.device, status=status, mode=self.settings.AGENT_MODE.upper()),
+            render_banner(
+                self.device,
+                status=status,
+                mode=self.settings.AGENT_MODE.upper(),
+                database_path=self.settings.local_database_path,
+            ),
             flush=True,
         )
         print(flush=True)
+
+    def print_database_view(self) -> None:
+        stored = self.repository.list_events()
+        print("Events:", flush=True)
+        for item in stored:
+            print(render_stored_event_line(item), flush=True)
+        print(flush=True)
+        print(
+            render_event_summary(
+                total_events=self.repository.get_event_count(),
+                pending_events=self.repository.get_event_count(SyncStatus.PENDING),
+            ),
+            flush=True,
+        )
 
 
 def run_agent(settings: AgentSettings, *, once: bool = False, sequence: Sequence[str] | None = None) -> int:
@@ -89,7 +120,10 @@ def run_agent(settings: AgentSettings, *, once: bool = False, sequence: Sequence
     if test_mode:
         logger.info("Test mode: emitting simulated events only")
         agent.run_test_scenario(sequence)
+        print(flush=True)
+        agent.print_database_view()
         if once:
+            print(flush=True)
             agent.print_banner(status="STOPPED")
             return 0
     elif not is_windows():

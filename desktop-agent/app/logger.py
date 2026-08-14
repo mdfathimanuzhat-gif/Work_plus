@@ -32,7 +32,8 @@ class EventLogFormatter(logging.Formatter):
 
 def configure_logging(settings: AgentSettings) -> logging.Logger:
     """Configure rotating file + console loggers. Safe to call more than once."""
-    settings.LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_dir = settings.LOG_DIR if settings.LOG_DIR is not None else settings.DATA_DIR / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
     diagnostic = logging.getLogger(DIAGNOSTIC_LOGGER_NAME)
     events = logging.getLogger(EVENT_LOGGER_NAME)
     if diagnostic.handlers and events.handlers:
@@ -50,7 +51,7 @@ def configure_logging(settings: AgentSettings) -> logging.Logger:
     diagnostic.addHandler(console)
 
     diagnostic_file = RotatingFileHandler(
-        settings.LOG_DIR / "agent.log",
+        log_dir / "agent.log",
         maxBytes=settings.LOG_MAX_BYTES,
         backupCount=settings.LOG_BACKUP_COUNT,
         encoding="utf-8",

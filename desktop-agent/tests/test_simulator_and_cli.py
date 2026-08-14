@@ -30,6 +30,7 @@ def test_simulator_emits_expected_types(event_service) -> None:
 def test_cli_test_once_prints_simulated_events(data_dir: Path, monkeypatch, capsys) -> None:
     monkeypatch.setenv("DATA_DIR", str(data_dir))
     monkeypatch.setenv("LOG_DIR", str(data_dir / "logs"))
+    monkeypatch.setenv("LOCAL_DATABASE_PATH", str(data_dir / "events.db"))
     monkeypatch.setenv("TEST_EVENT_DELAY_SECONDS", "0")
     code = main(["--test", "--once"])
     assert code == 0
@@ -39,7 +40,9 @@ def test_cli_test_once_prints_simulated_events(data_dir: Path, monkeypatch, caps
     assert "SYSTEM_LOCK" in output
     assert "SYSTEM_UNLOCK" in output
     assert "IDLE_START" in output
-    assert "WINDOWS_LOGOUT" in output
+    assert "PENDING" in output
+    assert "Local Database:" in output
+    assert "Pending sync:" in output
 
 
 def test_agent_test_scenario_uses_service(settings) -> None:
@@ -57,5 +60,6 @@ def test_live_mode_requires_windows(data_dir: Path) -> None:
         AGENT_MODE="live",
         DATA_DIR=data_dir,
         LOG_DIR=data_dir / "logs",
+        LOCAL_DATABASE_PATH=data_dir / "events.db",
     )
     assert run_agent(settings) == 1

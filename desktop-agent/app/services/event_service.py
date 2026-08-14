@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from app.device import DeviceIdentity
 from app.logger import log_event_line
 from app.models import AgentEvent, EventType
+from app.storage.repository import DuplicateEventError, EventRepository
 
 Listener = Callable[[AgentEvent], None]
 logger = logging.getLogger("workpulse.agent.events.service")
@@ -32,10 +33,23 @@ class SessionSnapshot:
 @dataclass
 class EventService:
     device: DeviceIdentity
+    repository: EventRepository | None = None
     _state: SessionSnapshot = field(default_factory=SessionSnapshot)
     _events: list[AgentEvent] = field(default_factory=list)
     _listeners: list[Listener] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def __post_init__(self) -> None:
+        if self.repository is None:
+            return
+        try:
+            stored = self.repository.list_events()
+        except Exception:
+            logger.exception("Failed to load events from SQLite; continuing with empty in-memory state")
+            return
+        self._events = [item.event for item in stored]
+        for event in self._events:
+            self._apply_state(event.event_type)
 
     def add_listener(self, listener: Listener) -> None:
         self._listeners.append(listener)
@@ -82,9 +96,10 @@ class EventService:
                 username=self.device.username,
                 metadata=extra,
             )
+            if not self._persist(event):
+                return None
             self._apply_state(event_type)
             self._events.append(event)
-        self._persist(event)
         for listener in list(self._listeners):
             try:
                 listener(event)
@@ -170,8 +185,19 @@ class EventService:
             self._state.idle = False
             self._state.sleeping = False
 
-    def _persist(self, event: AgentEvent) -> None:
+    def _persist(self, event: AgentEvent) -> bool:
+        """Return True only after the event is in SQLite (and the text log)."""
+        if self.repository is not None:
+            try:
+                self.repository.save_event(event)
+            except DuplicateEventError:
+                logger.warning("SQLite rejected duplicate event_id %s", event.event_id)
+                return False
+            except Exception:
+                logger.exception("Failed to persist event %s to SQLite", event.event_id)
+                return False
         try:
             log_event_line(event)
         except Exception:
             logger.exception("Failed to write event log for %s", event.event_id)
+        return True

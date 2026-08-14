@@ -25,10 +25,12 @@ def settings(data_dir: Path):
     return load_settings(
         DATA_DIR=data_dir,
         LOG_DIR=data_dir / "logs",
+        LOCAL_DATABASE_PATH=data_dir / "events.db",
         IDLE_THRESHOLD_SECONDS=300,
         AGENT_MODE="test",
         LOG_LEVEL="INFO",
         TEST_EVENT_DELAY_SECONDS=0,
+        LOCAL_EVENT_RETENTION_DAYS=30,
     )
 
 
@@ -45,4 +47,6 @@ def device() -> DeviceIdentity:
 @pytest.fixture
 def event_service(settings, device) -> EventService:
     configure_logging(settings)
-    return EventService(device)
+    from app.storage.repository import EventRepository
+
+    return EventService(device, repository=EventRepository(settings.local_database_path))

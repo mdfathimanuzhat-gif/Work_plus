@@ -22,7 +22,7 @@ Access is role-based. Attendance and timesheet scopes are reserved for later pha
 - **Database:** PostgreSQL
 - **Migrations:** Alembic
 - **Authentication:** JWT and Argon2id password hashing
-- **Desktop agent:** Python, Windows session/power/idle detection, local rotating logs (no API sync yet)
+- **Desktop agent:** Python, Windows session/power/idle detection, local SQLite event queue (no API sync yet)
 - **Deployment:** Docker, Docker Compose, Nginx, Ubuntu VPS
 
 ## Folder structure
