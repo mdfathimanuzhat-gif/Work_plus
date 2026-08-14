@@ -32,7 +32,7 @@ Access will be strictly role-based in later phases:
 │   ├── app/
 │   │   ├── api/             HTTP routers (health only for now)
 │   │   ├── core/            Settings and logging
-│   │   ├── models/          SQLAlchemy models (later)
+│   │   ├── models/          SQLAlchemy schema (Phase 2)
 │   │   ├── schemas/         Pydantic schemas (later)
 │   │   ├── services/        Business logic (later)
 │   │   ├── repositories/    Data access (later)
@@ -121,13 +121,14 @@ cd backend
 pytest
 ```
 
-Alembic (no migrations in this phase):
+Apply the schema and optional development seed (from `backend/`):
 
 ```bash
-cd backend
-alembic revision --autogenerate -m "message"
 alembic upgrade head
+python scripts/seed_dev.py
 ```
+
+`seed_dev.py` runs only when `ENVIRONMENT` is `development`, `dev`, or `local`. It does not store passwords. See [docs/database.md](docs/database.md).
 
 ### 2. Frontend
 
@@ -163,3 +164,5 @@ DATABASE_URL=postgresql+psycopg://workpulse:YOUR_PASSWORD@db:5432/workpulse
 | GET | `/api/health` | Liveness. Returns `{"status":"ok"}`. |
 
 No business endpoints are implemented in this phase.
+
+Database schema, migrations, and seed data are documented in [docs/database.md](docs/database.md).

@@ -1,4 +1,3 @@
 # WorkPulse documentation
 
-Architecture notes for this foundation phase are in the root README.
-Feature-specific docs will be added with each module.
+- [Database schema](database.md) — tables, relationships, constraints, migrations, and seed data
