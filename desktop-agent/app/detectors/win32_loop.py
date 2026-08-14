@@ -56,8 +56,9 @@ def _restart_requested() -> bool | None:
 class Win32EventLoop:
     """Background Win32 message pump. No-op to construct on non-Windows."""
 
-    def __init__(self, record: RecordFn) -> None:
+    def __init__(self, record: RecordFn, *, on_session_ending: Callable[[], None] | None = None) -> None:
         self._record = record
+        self._on_session_ending = on_session_ending
         self._thread: threading.Thread | None = None
         self._hwnd = None
         self._stop = threading.Event()
@@ -69,7 +70,7 @@ class Win32EventLoop:
         if self._thread and self._thread.is_alive():
             return
         self._stop.clear()
-        self._thread = threading.Thread(target=self._run, name="workpulse-win32", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="workpulse-win32", daemon=False)
         self._thread.start()
 
     def stop(self) -> None:
@@ -105,9 +106,14 @@ class Win32EventLoop:
                 if event_type is not None:
                     metadata = end_session_metadata(wparam, lparam, restart_requested=restart)
                     self._safe_record(event_type, source="end_session", **metadata)
+                if wparam and self._on_session_ending is not None:
+                    try:
+                        self._on_session_ending()
+                    except Exception:
+                        logger.exception("Session-ending callback failed")
                 return
             if msg == WM_QUERYENDSESSION:
-                logger.info("WM_QUERYENDSESSION received wparam=%s lparam=%s", wparam, lparam)
+                logger.info("WM_QUERYENDSESSION received; persisting locally takes priority over sync")
         except Exception:
             logger.exception("Failed handling Win32 message %s", msg)
 

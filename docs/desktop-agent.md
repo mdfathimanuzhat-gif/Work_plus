@@ -1,8 +1,13 @@
 # WorkPulse desktop agent
 
-Local Windows event detection, **offline SQLite storage**, and **background
-synchronization** to the WorkPulse FastAPI API. This phase does **not** calculate
-worked time, track location, or capture screen/keyboard content.
+Local Windows event detection, **offline SQLite storage**, **background
+synchronization**, and a **continuous Windows runtime** (Phase 5E) for the
+WorkPulse FastAPI API. This phase does **not** calculate timesheets, track
+location, or capture screen/keyboard content.
+
+Real Windows lock/unlock/idle validation is documented in
+[windows-testing.md](windows-testing.md).
+
 
 ## Purpose
 
@@ -174,8 +179,55 @@ Copy `desktop-agent/.env.example` to `desktop-agent/.env`.
 | `SYNC_INTERVAL_SECONDS` | `15` | Pause between successful sync cycles |
 | `SYNC_MAX_BACKOFF_SECONDS` | `60` | Cap for retry delays |
 | `SYNC_REQUEST_TIMEOUT_SECONDS` | `15` | HTTP timeout |
+| `STATUS_HEARTBEAT_SECONDS` | `30` | How often status is written to `status.json` and the log |
 | `AGENT_EMAIL` / `AGENT_PASSWORD` | unset | Used only to enroll the device (never committed) |
 | `DEVICE_SECRET` | unset | Optional; otherwise `{DATA_DIR}/device_secret` |
+
+`desktop-agent/.env.example` enables `SYNC_ENABLED=true` and local HTTP for
+Windows development. Production must use HTTPS and `ALLOW_INSECURE_HTTP=false`.
+
+## Windows runtime (Phase 5E)
+
+Entry point: `python main.py`. The process runs until Ctrl+C, a termination
+signal, or a Windows session-end notification. It does **not** exit after one
+event.
+
+| Path (Windows) | File |
+| --- | --- |
+| `%LOCALAPPDATA%\WorkPulse\events.db` | SQLite queue |
+| `%LOCALAPPDATA%\WorkPulse\logs\agent.log` | Rotating diagnostic log |
+| `%LOCALAPPDATA%\WorkPulse\logs\events.log` | Rotating event lines |
+| `%LOCALAPPDATA%\WorkPulse\device_identity.json` | Stable device UUID (not MAC) |
+| `%LOCALAPPDATA%\WorkPulse\device_secret` | Device secret (never logged) |
+| `%LOCALAPPDATA%\WorkPulse\agent.lock` | Single-instance lock |
+| `%LOCALAPPDATA%\WorkPulse\status.json` | Last health snapshot |
+
+**Single instance:** a second `python main.py` logs the condition and exits
+with code 2.
+
+**Graceful shutdown:** stop new activity events, persist logout/shutdown if
+Windows delivers `WM_ENDSESSION`, stop the sync worker without waiting for a
+full upload, close Win32 listeners, then exit. SQLite persistence always
+wins over network sync.
+
+**Health:** `python main.py --status` prints RUNNING/STOPPED, device id,
+employee email (if configured), backend CONNECTED/OFFLINE/DISABLED, pending
+count, last event, and last successful sync. No passwords, secrets, or JWTs.
+
+**Startup (development):** do not install a Windows Service. Optional reversible
+current-user Startup shortcut:
+
+```powershell
+.\scripts\windows\register-dev-startup.ps1
+.\scripts\windows\unregister-dev-startup.ps1
+```
+
+**Packaging:** `desktop-agent/workpulse-agent.spec` is a PyInstaller starting
+point. Do not bundle `.env` or `device_secret`. Packaging is not required for
+this phase.
+
+Real Windows lock/unlock/idle/reboot steps: [windows-testing.md](windows-testing.md).
+First Windows test machine: enroll **EMP001 — Israh Zunain** only.
 
 ## Running locally
 
@@ -188,7 +240,11 @@ cp .env.example .env
 python main.py --test --once --sync-once
 ```
 
-On Windows, live detection: `python main.py`.
+On Windows, live detection (continuous): `python main.py`.
+
+```powershell
+python main.py --status
+```
 
 ```text
 WorkPulse Desktop Agent
@@ -218,6 +274,12 @@ Pending sync: 3
 | WAL files (`events.db-wal`) beside the db | Normal while the agent is running |
 | Events stay PENDING | Confirm `SYNC_ENABLED`, `API_BASE_URL`, and that `GET /api/health` succeeds |
 | AUTH_ERROR in logs | Re-enroll; check device secret and that the device is active |
+| Another WorkPulse agent is already running | Stop the existing instance; `--status` reports RUNNING |
+| Live mode requires Windows | Use `--test` on Linux/macOS |
+
+Automated tests (unit + integration) run on any OS. Windows-only and
+`WINDOWS_MANUAL_TEST` cases are marked and documented in
+[windows-testing.md](windows-testing.md).
 
 ```bash
 cd desktop-agent

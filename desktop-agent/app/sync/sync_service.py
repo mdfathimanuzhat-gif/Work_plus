@@ -6,6 +6,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable
+from datetime import datetime, timezone
 
 from app.config import AgentSettings
 from app.device import DeviceIdentity
@@ -39,8 +40,10 @@ class SyncService:
         self._failure_attempt = 0
         self._auth_blocked = False
         self.status = "OFFLINE"
+        self.last_successful_sync: datetime | None = None
 
     def start(self) -> None:
+        logger.info("Sync started")
         self._repository.revert_syncing_to_pending()
         if self._thread and self._thread.is_alive():
             return
@@ -87,6 +90,7 @@ class SyncService:
                     self._repository.mark_events_synced(ids)
                     totals["duplicates"] += len(ids)
                     self._failure_attempt = 0
+                    self.last_successful_sync = datetime.now(timezone.utc)
                     continue
                 self._repository.revert_syncing_to_pending(ids)
                 if exc.status_code in {401, 403}:
@@ -111,6 +115,7 @@ class SyncService:
                 response.get("failed"),
             )
             self._failure_attempt = 0
+            self.last_successful_sync = datetime.now(timezone.utc)
             if len(pending) < self._settings.SYNC_BATCH_SIZE:
                 totals["pending"] = self._repository.get_event_count(SyncStatus.PENDING)
                 self.status = "CONNECTED"
@@ -141,8 +146,8 @@ class SyncService:
                 return False
         if not self._client.ping():
             self.status = "OFFLINE"
-            logger.info(
-                "Pending events: %s; Sync status: OFFLINE",
+            logger.warning(
+                "Network unavailable; pending events remain in SQLite (%s)",
                 self._repository.get_event_count(SyncStatus.PENDING),
             )
             return False

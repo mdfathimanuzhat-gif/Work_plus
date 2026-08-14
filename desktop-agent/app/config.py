@@ -56,6 +56,7 @@ class AgentSettings(BaseSettings):
     SYNC_MAX_BACKOFF_SECONDS: int = 60
     SYNC_REQUEST_TIMEOUT_SECONDS: float = 15.0
     ALLOW_INSECURE_HTTP: bool = False
+    STATUS_HEARTBEAT_SECONDS: float = 30.0
 
     @field_validator("LOG_DIR", "LOCAL_DATABASE_PATH", mode="before")
     @classmethod
@@ -99,6 +100,13 @@ class AgentSettings(BaseSettings):
     def batch_size_must_be_positive(cls, value: int) -> int:
         if value < 1:
             raise ValueError("SYNC_BATCH_SIZE must be at least 1")
+        return value
+
+    @field_validator("STATUS_HEARTBEAT_SECONDS")
+    @classmethod
+    def heartbeat_must_be_positive(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError("STATUS_HEARTBEAT_SECONDS must be greater than 0")
         return value
 
     @field_validator("API_BASE_URL", "AGENT_EMAIL", "AGENT_PASSWORD", "DEVICE_SECRET", mode="before")
@@ -145,6 +153,14 @@ class AgentSettings(BaseSettings):
     @property
     def device_secret_path(self) -> Path:
         return self.DATA_DIR / "device_secret"
+
+    @property
+    def instance_lock_path(self) -> Path:
+        return self.DATA_DIR / "agent.lock"
+
+    @property
+    def status_file_path(self) -> Path:
+        return self.DATA_DIR / "status.json"
 
     @property
     def api_base_url(self) -> str | None:
