@@ -1,33 +1,61 @@
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import Sidebar from "../components/Sidebar.jsx";
+import TopHeader from "../components/TopHeader.jsx";
 import { useAuth } from "../hooks/useAuth.jsx";
+
+const TITLES = {
+  "/dashboard": "Dashboard",
+  "/attendance": "My Attendance",
+  "/timesheet": "Timesheet",
+  "/history": "Activity History",
+  "/device": "Device",
+  "/team": "Team",
+  "/employees": "Employees",
+  "/departments": "Departments",
+  "/teams": "Teams",
+  "/profile": "Profile",
+  "/settings": "Settings",
+};
 
 export default function AppLayout() {
   const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen(false);
+    setProfileOpen(false);
+  }, [location.pathname]);
 
   async function handleLogout() {
     await logout();
     navigate("/login");
   }
 
+  const title =
+    Object.entries(TITLES).find(([path]) => location.pathname === path || location.pathname.startsWith(`${path}/`))?.[1] ||
+    "WorkPulse";
+
   return (
-    <div>
-      <header className="app-header">
-        <strong>WorkPulse</strong>
-        <nav>
-          {hasRole("EMPLOYEE", "TEAM_LEAD", "HR", "ADMIN") && <Link to="/profile">My Profile</Link>}
-          {hasRole("TEAM_LEAD") && <Link to="/team">My Team</Link>}
-          {hasRole("HR", "ADMIN") && <Link to="/employees">Employees</Link>}
-          {hasRole("HR", "ADMIN") && <Link to="/departments">Departments</Link>}
-          {hasRole("HR", "ADMIN") && <Link to="/teams">Teams</Link>}
-          <button type="button" className="link-button" onClick={handleLogout}>
-            Sign out {user?.first_name}
-          </button>
-        </nav>
-      </header>
-      <main className="app-main">
-        <Outlet />
-      </main>
+    <div className="shell">
+      {menuOpen ? <div className="backdrop" onClick={() => setMenuOpen(false)} /> : null}
+      <Sidebar user={user} hasRole={hasRole} open={menuOpen} onLogout={handleLogout} />
+      <div className="workspace">
+        <TopHeader
+          title={title}
+          user={user}
+          profileOpen={profileOpen}
+          onMenu={() => setMenuOpen(true)}
+          onProfile={() => setProfileOpen((open) => !open)}
+          onLogout={handleLogout}
+        />
+        <main className="content">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

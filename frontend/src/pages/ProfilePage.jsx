@@ -1,74 +1,68 @@
 import { useEffect, useState } from "react";
-import { getMyProfile, updateEmployee } from "../services/people.js";
+
+import Avatar from "../components/Avatar.jsx";
+import LoadingState from "../components/LoadingState.jsx";
+import StatusBadge from "../components/StatusBadge.jsx";
 import { useAuth } from "../hooks/useAuth.jsx";
+import { getMyProfile } from "../services/people.js";
+import { display, displayName, primaryRole, userMessage } from "../utils/format.js";
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
-  const [phone, setPhone] = useState("");
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     getMyProfile()
-      .then((response) => {
-        setProfile(response.data);
-        setPhone(response.data.phone || "");
-      })
-      .catch((err) => setError(err.response?.data?.error?.message || "Unable to load profile"));
+      .then((response) => setProfile(response.data))
+      .catch((err) => setError(userMessage(err, "We couldn't load your profile.")));
   }, []);
 
-  async function handleSave(event) {
-    event.preventDefault();
-    setError("");
-    setMessage("");
-    try {
-      const response = await updateEmployee(user.employee_id, { phone });
-      setProfile(response.data);
-      setMessage("Profile updated");
-    } catch (err) {
-      setError(err.response?.data?.error?.message || "Unable to update profile");
-    }
+  if (!user) {
+    return (
+      <div className="stack">
+        <div className="alert alert-error">You need to sign in to view this page.</div>
+      </div>
+    );
   }
 
-  if (!profile) {
-    return <p>{error || "Loading…"}</p>;
-  }
+  const person = profile || user;
 
   return (
-    <section className="card">
-      <h1>My Profile</h1>
-      <dl className="details">
-        <dt>Employee ID</dt>
-        <dd>{profile.employee_code}</dd>
-        <dt>Name</dt>
-        <dd>
-          {profile.first_name} {profile.last_name}
-        </dd>
-        <dt>Email</dt>
-        <dd>{profile.email}</dd>
-        <dt>Department</dt>
-        <dd>{profile.department_name || "—"}</dd>
-        <dt>Team</dt>
-        <dd>{profile.team_name || "—"}</dd>
-        <dt>Reporting Team Lead</dt>
-        <dd>{profile.manager_name || "—"}</dd>
-        <dt>Joining date</dt>
-        <dd>{profile.joining_date || "—"}</dd>
-        <dt>Employment status</dt>
-        <dd>{profile.employment_status}</dd>
-        <dt>Account status</dt>
-        <dd>{profile.account_status}</dd>
-      </dl>
-      <form className="stack" onSubmit={handleSave}>
-        <label>
-          Phone
-          <input value={phone} onChange={(event) => setPhone(event.target.value)} />
-        </label>
-        {message && <p className="success">{message}</p>}
-        {error && <p className="error">{error}</p>}
-        <button type="submit">Save personal details</button>
-      </form>
-    </section>
+    <div className="stack">
+      {error ? <div className="alert alert-error">{error}</div> : null}
+      {!profile && !error ? <LoadingState kind="card" /> : null}
+      <article className="card">
+        <div className="person" style={{ gap: "1rem" }}>
+          <Avatar first={person.first_name} last={person.last_name} size="lg" />
+          <div>
+            <h1 style={{ margin: 0, letterSpacing: "-0.03em" }}>{displayName(person)}</h1>
+            <p className="muted">{person.email}</p>
+            <div className="row" style={{ marginTop: 10 }}>
+              <StatusBadge status={person.is_active === false ? "OFFLINE" : "ACTIVE"} />
+              <span className="badge badge-muted">{primaryRole(person.roles || user.roles)}</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <section className="grid grid-3">
+        <InfoCard label="Employee ID" value={display(person.employee_code)} />
+        <InfoCard label="Role" value={primaryRole(person.roles || user.roles)} />
+        <InfoCard label="Department" value={display(person.department_name)} />
+        <InfoCard label="Team" value={display(person.team_name)} />
+        <InfoCard label="Account status" value={display(person.account_status || (person.is_active === false ? "Inactive" : "Active"))} />
+        <InfoCard label="Employment" value={display(person.employment_status)} />
+      </section>
+    </div>
+  );
+}
+
+function InfoCard({ label, value }) {
+  return (
+    <article className="card">
+      <p className="muted" style={{ margin: 0 }}>{label}</p>
+      <p style={{ fontSize: 18, fontWeight: 700, margin: "8px 0 0", letterSpacing: "-0.03em" }}>{value}</p>
+    </article>
   );
 }

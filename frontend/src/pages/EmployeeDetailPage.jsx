@@ -1,75 +1,104 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+
+import AttendanceSummary from "../components/AttendanceSummary.jsx";
+import Avatar from "../components/Avatar.jsx";
+import LoadingState from "../components/LoadingState.jsx";
+import PageHeader from "../components/PageHeader.jsx";
+import StatusBadge from "../components/StatusBadge.jsx";
+import { getEmployeeAttendance } from "../services/attendance.js";
 import { deactivateEmployee, getEmployee } from "../services/people.js";
+import { displayName, todayIso, userMessage } from "../utils/format.js";
 
 export default function EmployeeDetailPage() {
   const { employeeId } = useParams();
-  const navigate = useNavigate();
   const [employee, setEmployee] = useState(null);
+  const [day, setDay] = useState(null);
   const [error, setError] = useState("");
+  const [confirm, setConfirm] = useState(false);
 
   useEffect(() => {
     getEmployee(employeeId)
       .then((response) => setEmployee(response.data))
-      .catch((err) => setError(err.response?.data?.error?.message || "Unable to load employee"));
+      .catch((err) => setError(userMessage(err, "Unable to load employee")));
+    getEmployeeAttendance(employeeId, todayIso())
+      .then((response) => setDay(response.data))
+      .catch(() => setDay(null));
   }, [employeeId]);
 
   async function handleDeactivate() {
-    if (!window.confirm("Deactivate this employee?")) {
-      return;
-    }
     try {
       await deactivateEmployee(employeeId);
       const response = await getEmployee(employeeId);
       setEmployee(response.data);
+      setConfirm(false);
     } catch (err) {
-      setError(err.response?.data?.error?.message || "Unable to deactivate");
+      setError(userMessage(err, "Unable to deactivate"));
     }
   }
 
-  if (!employee) {
-    return <p>{error || "Loading…"}</p>;
-  }
+  if (!employee) return error ? <div className="alert alert-error">{error}</div> : <LoadingState />;
 
   return (
-    <section className="card">
-      <div className="row-between">
-        <h1>
-          {employee.first_name} {employee.last_name}
-        </h1>
-        <div className="row">
-          <Link to={`/employees/${employee.id}/edit`}>Edit</Link>
-          <button type="button" onClick={handleDeactivate}>
-            Deactivate
-          </button>
-          <button type="button" onClick={() => navigate("/employees")}>
-            Back
-          </button>
+    <div className="stack">
+      <PageHeader
+        title={displayName(employee)}
+        subtitle={employee.employee_code}
+        actions={
+          <>
+            <Link className="btn btn-secondary" to="/employees">
+              Back
+            </Link>
+            <Link className="btn" to={`/employees/${employee.id}/edit`}>
+              Edit
+            </Link>
+            <button className="btn btn-danger" type="button" onClick={() => setConfirm(true)}>
+              Deactivate
+            </button>
+          </>
+        }
+      />
+      {error ? <div className="alert alert-error">{error}</div> : null}
+      {confirm ? (
+        <article className="card">
+          <p>Deactivate this employee account?</p>
+          <div className="row">
+            <button className="btn btn-danger" type="button" onClick={handleDeactivate}>
+              Confirm deactivate
+            </button>
+            <button className="btn btn-secondary" type="button" onClick={() => setConfirm(false)}>
+              Cancel
+            </button>
+          </div>
+        </article>
+      ) : null}
+      <article className="card">
+        <div className="person" style={{ gap: "1rem", marginBottom: "1rem" }}>
+          <Avatar first={employee.first_name} last={employee.last_name} size="lg" />
+          <div>
+            <div className="row">
+              <StatusBadge status={employee.employment_status} />
+              <span className="badge badge-muted">{employee.account_status || "—"}</span>
+            </div>
+            <p className="muted">{employee.email}</p>
+          </div>
         </div>
-      </div>
-      {error && <p className="error">{error}</p>}
-      <dl className="details">
-        <dt>Employee ID</dt>
-        <dd>{employee.employee_code}</dd>
-        <dt>Email</dt>
-        <dd>{employee.email}</dd>
-        <dt>Phone</dt>
-        <dd>{employee.phone || "—"}</dd>
-        <dt>Department</dt>
-        <dd>{employee.department_name || "—"}</dd>
-        <dt>Team</dt>
-        <dd>{employee.team_name || "—"}</dd>
-        <dt>Reporting Team Lead</dt>
-        <dd>{employee.manager_name || "—"}</dd>
-        <dt>Joining date</dt>
-        <dd>{employee.joining_date || "—"}</dd>
-        <dt>Employment status</dt>
-        <dd>{employee.employment_status}</dd>
-        <dt>Account status</dt>
-        <dd>{employee.account_status}</dd>
-        <dt>Roles</dt>
-        <dd>{employee.roles.join(", ") || "—"}</dd>
-      </dl>
-    </section>
+        <dl className="details">
+          <dt>Phone</dt>
+          <dd>{employee.phone || "—"}</dd>
+          <dt>Department</dt>
+          <dd>{employee.department_name || "—"}</dd>
+          <dt>Team</dt>
+          <dd>{employee.team_name || "—"}</dd>
+          <dt>Reporting team lead</dt>
+          <dd>{employee.manager_name || "—"}</dd>
+          <dt>Joining date</dt>
+          <dd>{employee.joining_date || "—"}</dd>
+          <dt>Roles</dt>
+          <dd>{employee.roles?.join(", ") || "—"}</dd>
+        </dl>
+      </article>
+      <AttendanceSummary day={day} />
+    </div>
   );
 }
