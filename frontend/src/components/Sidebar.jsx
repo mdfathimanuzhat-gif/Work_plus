@@ -21,6 +21,7 @@ export default function Sidebar({ user, hasRole, open, onLogout }) {
         <Item to="/history" icon="history" label="Activity History" />
         {hasRole("TEAM_LEAD", "HR", "ADMIN") || hasRole("HR", "ADMIN") ? <div className="nav-label">Management</div> : null}
         {hasRole("TEAM_LEAD", "HR", "ADMIN") ? <Item to="/team" icon="users" label="Team" /> : null}
+        {hasRole("TEAM_LEAD", "HR", "ADMIN") ? <Item to="/approvals" icon="check" label="Approvals" /> : null}
         {hasRole("HR", "ADMIN") ? (
           <>
             <Item to="/employees" icon="users" label="Employees" />

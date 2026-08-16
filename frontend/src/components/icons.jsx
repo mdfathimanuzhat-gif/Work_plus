@@ -36,6 +36,7 @@ export function Icon({ name, size = 18 }) {
     menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
     download: <><path d="M12 4v12M7 11l5 5 5-5M5 20h14" /></>,
     session: <><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 9h8M8 13h5" /></>,
+    check: <><path d="M20 6L9 17l-5-5" /></>,
   };
   return <svg {...common}>{paths[name] || paths.dashboard}</svg>;
 }

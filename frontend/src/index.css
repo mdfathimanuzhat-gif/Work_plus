@@ -266,11 +266,11 @@ a { color: var(--color-accent); }
   font-size: 0.72rem; font-weight: 650;
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.badge-success, .status-ACTIVE, .status-PRESENT, .status-OPEN { background: #ecfdf3; color: #067647; }
-.badge-warning, .status-IDLE, .status-PARTIAL, .status-INCOMPLETE { background: #fffaeb; color: #b54708; }
+.badge-success, .status-ACTIVE, .status-PRESENT, .status-OPEN, .status-APPROVED { background: #ecfdf3; color: #067647; }
+.badge-warning, .status-IDLE, .status-PARTIAL, .status-INCOMPLETE, .status-SUBMITTED { background: #fffaeb; color: #b54708; }
 .badge-info, .status-LOCKED, .status-SLEEPING, .status-CONTINUED { background: #eff8ff; color: #175cd3; }
-.badge-danger, .status-ABSENT { background: #fef3f2; color: #b42318; }
-.badge-muted, .status-OFFLINE, .status-CLOSED { background: #f2f4f7; color: #667085; }
+.badge-danger, .status-ABSENT, .status-REJECTED { background: #fef3f2; color: #b42318; }
+.badge-muted, .status-OFFLINE, .status-CLOSED, .status-DRAFT { background: #f2f4f7; color: #667085; }
 .badge-primary { background: #eef2ff; color: #3538cd; }
 
 .timeline { list-style: none; margin: 0; padding: 0; }
@@ -505,6 +505,11 @@ table.data tr:hover td { background: #fafbff; }
 }
 .dash-mix { margin-top: 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
 .dash-mix .row-between { font-size: 0.86rem; }
+.review-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
 
 @media (max-width: 1100px) {
   .workspace { margin-left: 0; }

@@ -11,6 +11,7 @@ import EmployeeFormPage from "./pages/EmployeeFormPage.jsx";
 import EmployeeDetailPage from "./pages/EmployeeDetailPage.jsx";
 import DepartmentsPage from "./pages/DepartmentsPage.jsx";
 import TeamsPage from "./pages/TeamsPage.jsx";
+import ApprovalsPage from "./pages/ApprovalsPage.jsx";
 
 function HomePage() {
   return <Navigate to="/dashboard" replace />;
@@ -36,6 +37,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={["TEAM_LEAD", "HR", "ADMIN"]}>
                   <TeamPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/approvals"
+              element={
+                <ProtectedRoute roles={["TEAM_LEAD", "HR", "ADMIN"]}>
+                  <ApprovalsPage />
                 </ProtectedRoute>
               }
             />
