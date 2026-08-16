@@ -17,7 +17,10 @@ export default function SettingsPage() {
           <dt>Role</dt>
           <dd>{primaryRole(user?.roles)}</dd>
         </dl>
-        <p className="muted" style={{ marginTop: "1rem" }}>
+      </article>
+      <article className="card">
+        <h2 className="card-title">Notifications</h2>
+        <p className="muted" style={{ margin: 0 }}>
           Notification delivery is not configured in this phase.
         </p>
       </article>

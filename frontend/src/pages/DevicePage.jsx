@@ -1,41 +1,41 @@
 import { useEffect, useState } from "react";
-import DeviceStatus from "../components/DeviceStatus.jsx";
+
+import DeviceStatusCard from "../components/DeviceStatusCard.jsx";
+import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
-import StatusBadge from "../components/StatusBadge.jsx";
-import { getMyLiveAttendance } from "../services/attendance.js";
-import { formatTime } from "../utils/format.js";
+import { getMyAttendanceLive } from "../services/attendance.js";
+import { userMessage } from "../utils/format.js";
 
 export default function DevicePage() {
   const [live, setLive] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    getMyLiveAttendance()
-      .then((response) => setLive(response.data))
-      .catch(() => setLive(null));
+    let cancelled = false;
+    (async () => {
+      try {
+        const payload = await getMyAttendanceLive();
+        if (!cancelled) setLive(payload);
+      } catch (err) {
+        if (!cancelled) setError(userMessage(err, "We couldn't load device status."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  const connected = Boolean(live && live.state && live.state !== "OFFLINE");
 
   return (
     <div className="stack">
-      <PageHeader title="Device" subtitle="Desktop agent connection inferred from live attendance state." />
-      <DeviceStatus
-        connected={connected}
-        deviceName={null}
-        operatingSystem={null}
-        lastSync={formatTime(live?.as_of)}
-        pendingEvents={null}
+      <PageHeader
+        title="Device"
+        subtitle="WorkPulse Agent connection is inferred from live attendance. Hostname and pending event counts are not returned by this API."
       />
-      <article className="card">
-        <h2 className="card-title">Live state</h2>
-        <div className="row">
-          <StatusBadge status={live?.state || "OFFLINE"} />
-          <span className="muted">Timezone {live?.timezone || "—"}</span>
-        </div>
-        <p className="muted" style={{ marginTop: "0.8rem" }}>
-          Device name, operating system, and pending event counts are not exposed by the current attendance APIs.
-        </p>
-      </article>
+      {error ? <div className="alert alert-error">{error}</div> : null}
+      {loading ? <LoadingState kind="card" /> : <DeviceStatusCard live={live} />}
     </div>
   );
 }

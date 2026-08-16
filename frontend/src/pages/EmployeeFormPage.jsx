@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import PageHeader from "../components/PageHeader.jsx";
 import { createEmployee, getEmployee, listDepartments, listEmployees, listTeams, updateEmployee } from "../services/people.js";
-import { apiError } from "../utils/format.js";
+import { userMessage } from "../utils/format.js";
 
 const empty = {
   employee_code: "",
@@ -82,7 +82,7 @@ export default function EmployeeFormPage() {
         navigate(`/employees/${created.data.id}`);
       }
     } catch (err) {
-      setError(apiError(err, "Unable to save employee"));
+      setError(userMessage(err, "Unable to save employee"));
     } finally {
       setSaving(false);
     }
@@ -93,7 +93,7 @@ export default function EmployeeFormPage() {
       <PageHeader title={isEdit ? "Edit employee" : "Create employee"} subtitle="Organization directory record." />
       <article className="card">
         <form className="stack" onSubmit={handleSubmit}>
-          <div className="grid grid-2">
+          <div className="grid grid-2 form-grid">
             <label className="label">
               Employee ID
               <input className="input" value={form.employee_code} onChange={(event) => updateField("employee_code", event.target.value)} required disabled={isEdit} />

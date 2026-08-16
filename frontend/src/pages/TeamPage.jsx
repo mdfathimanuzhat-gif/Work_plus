@@ -46,10 +46,10 @@ export default function TeamPage() {
         actions={<input className="input" type="date" value={date} onChange={(event) => setDate(event.target.value)} />}
       />
       <section className="grid grid-4">
-        <StatCard icon="users" label="People" value={members.length || records.length || "—"} hint="Visible employees" />
-        <StatCard icon="activity" label="With sessions" value={present || "—"} hint="Present / activity recorded" />
-        <StatCard icon="pause" label="Incomplete" value={incomplete || "—"} hint="Partial days" />
-        <StatCard icon="calendar" label="No activity" value={absent || "—"} hint="No session on this date" />
+        <StatCard tone="session" icon="users" label="People" value={members.length || records.length || "—"} hint="Visible employees" />
+        <StatCard tone="active" icon="activity" label="With sessions" value={present || "—"} hint="Present / activity recorded" />
+        <StatCard tone="idle" icon="pause" label="Incomplete" value={incomplete || "—"} hint="Partial days" />
+        <StatCard tone="locked" icon="calendar" label="No activity" value={absent || "—"} hint="No session on this date" />
       </section>
       {error ? <div className="alert alert-error">{error}</div> : null}
       <article className="card">

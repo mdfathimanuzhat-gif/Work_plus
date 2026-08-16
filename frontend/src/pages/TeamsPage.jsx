@@ -52,9 +52,9 @@ export default function TeamsPage() {
     <div className="stack">
       <PageHeader title="Teams" subtitle="Team leads and department assignment." />
       <section className="grid grid-3">
-        <StatCard icon="users" label="Teams" value={teams.length} />
-        <StatCard icon="building" label="Departments linked" value={new Set(teams.map((team) => team.department_id).filter(Boolean)).size} />
-        <StatCard icon="user" label="With lead" value={teams.filter((team) => team.team_lead_id).length} />
+        <StatCard tone="session" icon="users" label="Teams" value={teams.length} hint="Team records" />
+        <StatCard tone="locked" icon="building" label="Departments linked" value={new Set(teams.map((team) => team.department_id).filter(Boolean)).size} hint="Unique departments" />
+        <StatCard tone="active" icon="user" label="With lead" value={teams.filter((team) => team.team_lead_id).length} hint="Assigned team leads" />
       </section>
       <article className="card">
         <form className="filters" onSubmit={handleCreate}>

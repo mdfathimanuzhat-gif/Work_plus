@@ -45,9 +45,9 @@ export default function DepartmentsPage() {
     <div className="stack">
       <PageHeader title="Departments" subtitle="Organization structure." />
       <section className="grid grid-3">
-        <StatCard icon="building" label="Departments" value={departments.length} />
-        <StatCard icon="activity" label="Active" value={activeCount} />
-        <StatCard icon="pause" label="Inactive" value={departments.length - activeCount} />
+        <StatCard tone="session" icon="building" label="Departments" value={departments.length} hint="In this organization" />
+        <StatCard tone="active" icon="activity" label="Active" value={activeCount} hint="Currently enabled" />
+        <StatCard tone="idle" icon="pause" label="Inactive" value={departments.length - activeCount} hint="Disabled departments" />
       </section>
       <article className="card">
         <form className="filters" onSubmit={handleCreate}>

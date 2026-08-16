@@ -15,3 +15,17 @@ export function getMyLiveAttendance() {
 export function getTeamAttendance(attendanceDate) {
   return api.get(`/attendance/team/${attendanceDate}`);
 }
+
+export function getEmployeeAttendance(employeeId, attendanceDate) {
+  return api.get(`/attendance/${employeeId}/${attendanceDate}`);
+}
+
+export async function getMyAttendanceLive() {
+  const response = await getMyLiveAttendance();
+  return response.data;
+}
+
+export async function getMyAttendanceDay(attendanceDate) {
+  const response = await getMyAttendanceOnDate(attendanceDate);
+  return response.data;
+}

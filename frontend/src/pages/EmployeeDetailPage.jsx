@@ -1,22 +1,29 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+
+import AttendanceSummary from "../components/AttendanceSummary.jsx";
 import Avatar from "../components/Avatar.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import StatusBadge from "../components/StatusBadge.jsx";
+import { getEmployeeAttendance } from "../services/attendance.js";
 import { deactivateEmployee, getEmployee } from "../services/people.js";
-import { apiError, displayName } from "../utils/format.js";
+import { displayName, todayIso, userMessage } from "../utils/format.js";
 
 export default function EmployeeDetailPage() {
   const { employeeId } = useParams();
   const [employee, setEmployee] = useState(null);
+  const [day, setDay] = useState(null);
   const [error, setError] = useState("");
   const [confirm, setConfirm] = useState(false);
 
   useEffect(() => {
     getEmployee(employeeId)
       .then((response) => setEmployee(response.data))
-      .catch((err) => setError(apiError(err, "Unable to load employee")));
+      .catch((err) => setError(userMessage(err, "Unable to load employee")));
+    getEmployeeAttendance(employeeId, todayIso())
+      .then((response) => setDay(response.data))
+      .catch(() => setDay(null));
   }, [employeeId]);
 
   async function handleDeactivate() {
@@ -26,7 +33,7 @@ export default function EmployeeDetailPage() {
       setEmployee(response.data);
       setConfirm(false);
     } catch (err) {
-      setError(apiError(err, "Unable to deactivate"));
+      setError(userMessage(err, "Unable to deactivate"));
     }
   }
 
@@ -71,7 +78,7 @@ export default function EmployeeDetailPage() {
           <div>
             <div className="row">
               <StatusBadge status={employee.employment_status} />
-              <span className="badge badge-muted">{employee.account_status}</span>
+              <span className="badge badge-muted">{employee.account_status || "—"}</span>
             </div>
             <p className="muted">{employee.email}</p>
           </div>
@@ -91,6 +98,7 @@ export default function EmployeeDetailPage() {
           <dd>{employee.roles?.join(", ") || "—"}</dd>
         </dl>
       </article>
+      <AttendanceSummary day={day} />
     </div>
   );
 }

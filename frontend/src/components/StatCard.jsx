@@ -1,10 +1,10 @@
 import { Icon } from "./icons.jsx";
 
-export default function StatCard({ icon, label, value, hint }) {
+export default function StatCard({ icon = "clock", label, value, hint, tone = "session" }) {
   return (
-    <article className="card stat-card">
+    <article className={`card stat-card tone-${tone}`}>
       <div className="stat-icon">
-        <Icon name={icon} />
+        {typeof icon === "string" || icon == null ? <Icon name={icon || "clock"} /> : icon}
       </div>
       <div>
         <div className="label">{label}</div>
