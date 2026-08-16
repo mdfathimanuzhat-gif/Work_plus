@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     AGENT_EVENT_MAX_BATCH: int = 100
     AGENT_EVENT_MAX_FUTURE_SECONDS: int = 7200
     AGENT_EVENT_MAX_AGE_DAYS: int = 400
+    ATTENDANCE_STALE_AFTER_SECONDS: int = 600
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -46,6 +47,13 @@ class Settings(BaseSettings):
     def secret_key_must_not_be_empty(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("SECRET_KEY must be set")
+        return value
+
+    @field_validator("ATTENDANCE_STALE_AFTER_SECONDS")
+    @classmethod
+    def stale_after_must_be_positive(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("ATTENDANCE_STALE_AFTER_SECONDS must be at least 1")
         return value
 
     @property
