@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import PageHeader from "../components/PageHeader.jsx";
 import { createEmployee, getEmployee, listDepartments, listEmployees, listTeams, updateEmployee } from "../services/people.js";
+import { apiError } from "../utils/format.js";
 
 const empty = {
   employee_code: "",
@@ -26,6 +28,7 @@ export default function EmployeeFormPage() {
   const [teams, setTeams] = useState([]);
   const [managers, setManagers] = useState([]);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     listDepartments().then((response) => setDepartments(response.data));
@@ -59,6 +62,7 @@ export default function EmployeeFormPage() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setSaving(true);
     const payload = {
       ...form,
       department_id: form.department_id || null,
@@ -78,101 +82,111 @@ export default function EmployeeFormPage() {
         navigate(`/employees/${created.data.id}`);
       }
     } catch (err) {
-      setError(err.response?.data?.error?.message || "Unable to save employee");
+      setError(apiError(err, "Unable to save employee"));
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
-    <section className="card">
-      <h1>{isEdit ? "Edit employee" : "Create employee"}</h1>
-      <form className="stack" onSubmit={handleSubmit}>
-        <label>
-          Employee ID
-          <input value={form.employee_code} onChange={(event) => updateField("employee_code", event.target.value)} required disabled={isEdit} />
-        </label>
-        <label>
-          First name
-          <input value={form.first_name} onChange={(event) => updateField("first_name", event.target.value)} required />
-        </label>
-        <label>
-          Last name
-          <input value={form.last_name} onChange={(event) => updateField("last_name", event.target.value)} />
-        </label>
-        <label>
-          Email
-          <input type="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} required />
-        </label>
-        <label>
-          Phone
-          <input value={form.phone} onChange={(event) => updateField("phone", event.target.value)} />
-        </label>
-        <label>
-          Department
-          <select value={form.department_id} onChange={(event) => updateField("department_id", event.target.value)}>
-            <option value="">None</option>
-            {departments.map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Team
-          <select value={form.team_id} onChange={(event) => updateField("team_id", event.target.value)}>
-            <option value="">None</option>
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Reporting Team Lead
-          <select value={form.manager_id} onChange={(event) => updateField("manager_id", event.target.value)}>
-            <option value="">None</option>
-            {managers.map((manager) => (
-              <option key={manager.id} value={manager.id}>
-                {manager.first_name} {manager.last_name} ({manager.employee_code})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Joining date
-          <input type="date" value={form.joining_date} onChange={(event) => updateField("joining_date", event.target.value)} />
-        </label>
-        <label>
-          Employment status
-          <select value={form.employment_status} onChange={(event) => updateField("employment_status", event.target.value)}>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="INACTIVE">INACTIVE</option>
-            <option value="ON_LEAVE">ON_LEAVE</option>
-            <option value="TERMINATED">TERMINATED</option>
-          </select>
-        </label>
-        <label>
-          Role
-          <select value={form.role} onChange={(event) => updateField("role", event.target.value)}>
-            <option value="EMPLOYEE">EMPLOYEE</option>
-            <option value="TEAM_LEAD">TEAM_LEAD</option>
-            <option value="HR">HR</option>
-            <option value="ADMIN">ADMIN</option>
-          </select>
-        </label>
-        {!isEdit && (
-          <label>
-            Temporary password
-            <input type="password" value={form.password} onChange={(event) => updateField("password", event.target.value)} />
-          </label>
-        )}
-        {error && <p className="error">{error}</p>}
-        <div className="row">
-          <button type="submit">Save</button>
-          <Link to="/employees">Cancel</Link>
-        </div>
-      </form>
-    </section>
+    <div className="stack">
+      <PageHeader title={isEdit ? "Edit employee" : "Create employee"} subtitle="Organization directory record." />
+      <article className="card">
+        <form className="stack" onSubmit={handleSubmit}>
+          <div className="grid grid-2">
+            <label className="label">
+              Employee ID
+              <input className="input" value={form.employee_code} onChange={(event) => updateField("employee_code", event.target.value)} required disabled={isEdit} />
+            </label>
+            <label className="label">
+              Email
+              <input className="input" type="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} required />
+            </label>
+            <label className="label">
+              First name
+              <input className="input" value={form.first_name} onChange={(event) => updateField("first_name", event.target.value)} required />
+            </label>
+            <label className="label">
+              Last name
+              <input className="input" value={form.last_name} onChange={(event) => updateField("last_name", event.target.value)} />
+            </label>
+            <label className="label">
+              Phone
+              <input className="input" value={form.phone} onChange={(event) => updateField("phone", event.target.value)} />
+            </label>
+            <label className="label">
+              Joining date
+              <input className="input" type="date" value={form.joining_date} onChange={(event) => updateField("joining_date", event.target.value)} />
+            </label>
+            <label className="label">
+              Department
+              <select value={form.department_id} onChange={(event) => updateField("department_id", event.target.value)}>
+                <option value="">None</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="label">
+              Team
+              <select value={form.team_id} onChange={(event) => updateField("team_id", event.target.value)}>
+                <option value="">None</option>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="label">
+              Reporting team lead
+              <select value={form.manager_id} onChange={(event) => updateField("manager_id", event.target.value)}>
+                <option value="">None</option>
+                {managers.map((manager) => (
+                  <option key={manager.id} value={manager.id}>
+                    {manager.first_name} {manager.last_name} ({manager.employee_code})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="label">
+              Employment status
+              <select value={form.employment_status} onChange={(event) => updateField("employment_status", event.target.value)}>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE</option>
+                <option value="ON_LEAVE">ON_LEAVE</option>
+                <option value="TERMINATED">TERMINATED</option>
+              </select>
+            </label>
+            <label className="label">
+              Role
+              <select value={form.role} onChange={(event) => updateField("role", event.target.value)}>
+                <option value="EMPLOYEE">EMPLOYEE</option>
+                <option value="TEAM_LEAD">TEAM_LEAD</option>
+                <option value="HR">HR</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </label>
+            {!isEdit ? (
+              <label className="label">
+                Temporary password
+                <input className="input" type="password" value={form.password} onChange={(event) => updateField("password", event.target.value)} />
+              </label>
+            ) : null}
+          </div>
+          {error ? <div className="alert alert-error">{error}</div> : null}
+          <div className="row">
+            <button className="btn" type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <Link className="btn btn-secondary" to="/employees">
+              Cancel
+            </Link>
+          </div>
+        </form>
+      </article>
+    </div>
   );
 }

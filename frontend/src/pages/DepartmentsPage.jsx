@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
+import PageHeader from "../components/PageHeader.jsx";
+import StatCard from "../components/StatCard.jsx";
+import StatusBadge from "../components/StatusBadge.jsx";
 import { createDepartment, listDepartments, updateDepartment } from "../services/people.js";
+import { apiError } from "../utils/format.js";
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState([]);
@@ -10,7 +14,7 @@ export default function DepartmentsPage() {
   function load() {
     listDepartments()
       .then((response) => setDepartments(response.data))
-      .catch((err) => setError(err.response?.data?.error?.message || "Unable to load departments"));
+      .catch((err) => setError(apiError(err, "Unable to load departments")));
   }
 
   useEffect(() => {
@@ -26,7 +30,7 @@ export default function DepartmentsPage() {
       setCode("");
       load();
     } catch (err) {
-      setError(err.response?.data?.error?.message || "Unable to create department");
+      setError(apiError(err, "Unable to create department"));
     }
   }
 
@@ -35,39 +39,54 @@ export default function DepartmentsPage() {
     load();
   }
 
+  const activeCount = departments.filter((department) => department.is_active).length;
+
   return (
-    <section className="card">
-      <h1>Departments</h1>
-      <form className="filters" onSubmit={handleCreate}>
-        <input placeholder="Name" value={name} onChange={(event) => setName(event.target.value)} required />
-        <input placeholder="Code" value={code} onChange={(event) => setCode(event.target.value)} required />
-        <button type="submit">Create</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-      <table>
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Name</th>
-            <th>Active</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {departments.map((department) => (
-            <tr key={department.id}>
-              <td>{department.code}</td>
-              <td>{department.name}</td>
-              <td>{department.is_active ? "Yes" : "No"}</td>
-              <td>
-                <button type="button" onClick={() => toggleActive(department)}>
-                  {department.is_active ? "Deactivate" : "Activate"}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+    <div className="stack">
+      <PageHeader title="Departments" subtitle="Organization structure." />
+      <section className="grid grid-3">
+        <StatCard icon="building" label="Departments" value={departments.length} />
+        <StatCard icon="activity" label="Active" value={activeCount} />
+        <StatCard icon="pause" label="Inactive" value={departments.length - activeCount} />
+      </section>
+      <article className="card">
+        <form className="filters" onSubmit={handleCreate}>
+          <input className="input" placeholder="Name" value={name} onChange={(event) => setName(event.target.value)} required />
+          <input className="input" placeholder="Code" value={code} onChange={(event) => setCode(event.target.value)} required />
+          <button className="btn" type="submit">
+            Create
+          </button>
+        </form>
+        {error ? <div className="alert alert-error">{error}</div> : null}
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {departments.map((department) => (
+                <tr key={department.id}>
+                  <td>{department.code}</td>
+                  <td>{department.name}</td>
+                  <td>
+                    <StatusBadge status={department.is_active ? "ACTIVE" : "OFFLINE"} />
+                  </td>
+                  <td>
+                    <button className="btn btn-secondary" type="button" onClick={() => toggleActive(department)}>
+                      {department.is_active ? "Deactivate" : "Activate"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
   );
 }

@@ -3,17 +3,19 @@ import { AuthProvider } from "./hooks/useAuth.jsx";
 import AppLayout from "./layouts/AppLayout.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
+import DashboardPage from "./pages/DashboardPage.jsx";
+import AttendancePage from "./pages/AttendancePage.jsx";
+import TimesheetPage from "./pages/TimesheetPage.jsx";
+import HistoryPage from "./pages/HistoryPage.jsx";
+import DevicePage from "./pages/DevicePage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
 import TeamPage from "./pages/TeamPage.jsx";
 import EmployeeListPage from "./pages/EmployeeListPage.jsx";
 import EmployeeFormPage from "./pages/EmployeeFormPage.jsx";
 import EmployeeDetailPage from "./pages/EmployeeDetailPage.jsx";
 import DepartmentsPage from "./pages/DepartmentsPage.jsx";
 import TeamsPage from "./pages/TeamsPage.jsx";
-
-function HomePage() {
-  return <Navigate to="/profile" replace />;
-}
 
 export default function App() {
   return (
@@ -28,8 +30,14 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/attendance" element={<AttendancePage />} />
+            <Route path="/timesheet" element={<TimesheetPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/device" element={<DevicePage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route
               path="/team"
               element={
@@ -87,7 +95,7 @@ export default function App() {
               }
             />
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
