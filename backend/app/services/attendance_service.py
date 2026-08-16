@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.errors import APIError
 from app.models.attendance import Attendance, AttendanceSession
 from app.models.employee import Employee
@@ -24,6 +25,7 @@ from app.schemas.attendance import (
 from app.services.attendance_engine import (
     DailyAttendance,
     EngineEvent,
+    WorkState,
     empty_day,
     ensure_utc,
     load_zoneinfo,
@@ -244,11 +246,20 @@ def live_status(session: Session, user: AuthenticatedUser, employee_id: uuid.UUI
     now = datetime.now(timezone.utc)
     tz_name = _timezone_name(employee)
     tz = load_zoneinfo(tz_name)
-    result = replay_events(_engine_events(session, employee.id), timezone_name=tz_name, as_of=now)
+    events = _engine_events(session, employee.id)
+    result = replay_events(events, timezone_name=tz_name, as_of=now)
+    state = result.live_state
+    as_of = now
+    last_event_at = max((ensure_utc(event.event_time) for event in events), default=None)
+    if last_event_at is not None:
+        stale_after = timedelta(seconds=get_settings().ATTENDANCE_STALE_AFTER_SECONDS)
+        if now - last_event_at > stale_after:
+            state = WorkState.OFFLINE
+            as_of = last_event_at
     return LiveAttendanceResponse(
         employee_id=employee.id,
-        state=result.live_state,
-        as_of=now,
+        state=state,
+        as_of=as_of,
         attendance_date=local_date(now, tz),
         timezone=tz_name,
     )
