@@ -12,6 +12,11 @@ import EmployeeDetailPage from "./pages/EmployeeDetailPage.jsx";
 import DepartmentsPage from "./pages/DepartmentsPage.jsx";
 import TeamsPage from "./pages/TeamsPage.jsx";
 import ApprovalsPage from "./pages/ApprovalsPage.jsx";
+import TimesheetPage from "./pages/TimesheetPage.jsx";
+import AttendancePage from "./pages/AttendancePage.jsx";
+import HistoryPage from "./pages/HistoryPage.jsx";
+import DevicePage from "./pages/DevicePage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
 
 function HomePage() {
   return <Navigate to="/dashboard" replace />;
@@ -31,6 +36,11 @@ export default function App() {
           >
             <Route path="/" element={<HomePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/timesheet" element={<TimesheetPage />} />
+            <Route path="/attendance" element={<AttendancePage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/device" element={<DevicePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route
               path="/team"
