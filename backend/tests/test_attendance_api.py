@@ -197,3 +197,43 @@ def test_attendance_endpoints_are_read_only(client: TestClient, people: dict[str
         405,
         422,
     }
+
+
+def test_live_status_is_offline_when_last_event_is_stale(client: TestClient, people: dict[str, Any]) -> None:
+    last_seen = datetime.now(timezone.utc) - timedelta(minutes=11)
+    _add_events(
+        people["israh_id"],
+        [(last_seen, AttendanceEventType.LOGIN)],
+    )
+    token = _token(client, "israh.zunain@workpulse.local")
+    live = client.get("/api/attendance/me/live", headers=_auth(token))
+    assert live.status_code == 200, live.json()
+    body = live.json()
+    assert body["state"] == "OFFLINE"
+    as_of = datetime.fromisoformat(body["as_of"].replace("Z", "+00:00"))
+    assert abs((as_of - last_seen).total_seconds()) < 2
+
+
+def test_live_status_keeps_recent_state(client: TestClient, people: dict[str, Any]) -> None:
+    recent_login = datetime.now(timezone.utc) - timedelta(seconds=30)
+    _add_events(
+        people["sameer_id"],
+        [(recent_login, AttendanceEventType.LOGIN)],
+    )
+    token = _token(client, "sameer@workpulse.local")
+    live = client.get("/api/attendance/me/live", headers=_auth(token))
+    assert live.status_code == 200, live.json()
+    assert live.json()["state"] == "ACTIVE"
+
+    recent_lock = datetime.now(timezone.utc) - timedelta(minutes=2)
+    _add_events(
+        people["sameer_id"],
+        [
+            (recent_lock - timedelta(minutes=1), AttendanceEventType.LOGIN),
+            (recent_lock, AttendanceEventType.LOCK),
+        ],
+    )
+    locked = client.get("/api/attendance/me/live", headers=_auth(token))
+    assert locked.status_code == 200, locked.json()
+    assert locked.json()["state"] == "LOCKED"
+
