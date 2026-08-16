@@ -5,15 +5,24 @@ import ActivityTimeline from "../components/ActivityTimeline.jsx";
 import DeviceStatusCard from "../components/DeviceStatusCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import { Icon } from "../components/icons.jsx";
-import LiveStatusCard from "../components/LiveStatusCard.jsx";
 import LoadingState from "../components/LoadingState.jsx";
-import { ProgressRing } from "../components/ProgressBar.jsx";
-import ProgressBar from "../components/ProgressBar.jsx";
 import StatCard from "../components/StatCard.jsx";
+import StatusBadge from "../components/StatusBadge.jsx";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { useLiveSeconds } from "../hooks/useLiveSeconds.js";
 import { getMyAttendanceDay, getMyAttendanceLive } from "../services/attendance.js";
-import { firstName, formatClock, formatDuration, todayIso, userMessage } from "../utils/format.js";
+import {
+  displayName,
+  firstName,
+  formatClock,
+  formatDuration,
+  formatTime,
+  primaryRole,
+  splitDuration,
+  statusCopy,
+  todayIso,
+  userMessage,
+} from "../utils/format.js";
 import { timelineFromAttendanceDay } from "../utils/timeline.js";
 
 const TARGET_SECONDS = 8 * 3600;
@@ -69,6 +78,11 @@ export default function DashboardPage() {
   const timeline = useMemo(() => timelineFromAttendanceDay(day), [day]);
   const progress = TARGET_SECONDS > 0 ? Math.min(100, (displaySeconds / TARGET_SECONDS) * 100) : 0;
 
+  const status = live?.state || "OFFLINE";
+  const connected = Boolean(live && status !== "OFFLINE");
+  const timer = splitDuration(displaySeconds);
+  const deviceName = live?.device_name || live?.hostname || day?.device_name || "—";
+
   if (loading && !live && !day) {
     return (
       <div className="stack">
@@ -78,20 +92,25 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="stack">
-      <header className="greeting-row">
-        <div className="greeting">
+    <div className="dash">
+      <header className="dash-header">
+        <div>
+          <p className="dash-kicker">{formatClock(new Date())}</p>
           <h1>
-            {greeting(new Date())}, {firstName(user)}{" "}
-            <span aria-hidden="true">👋</span>
+            {greeting(new Date())}, {firstName(user)}
           </h1>
-          <p>Here's your work activity for today.</p>
-          <p className="muted" style={{ marginTop: 6 }}>{formatClock(new Date())}</p>
+          <p className="dash-sub">Here's your work activity for today.</p>
         </div>
-        <span className="live-chip">
-          <span className="pulse" />
-          LIVE
-        </span>
+        <div className="dash-header-meta">
+          <div className="dash-user-card">
+            <span className="dash-user-name">{displayName(user)}</span>
+            <span className="dash-user-role">{primaryRole(user?.roles)}</span>
+          </div>
+          <span className="live-chip">
+            <span className="pulse" />
+            LIVE
+          </span>
+        </div>
       </header>
 
       {error ? (
@@ -103,7 +122,39 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <LiveStatusCard live={live} day={day} />
+      <section className={`card dash-hero dash-hero-${status.toLowerCase()}`}>
+        <div className="dash-hero-copy">
+          <p className="dash-kicker">Current status</p>
+          <div className="dash-hero-status">
+            <StatusBadge status={status} />
+            <h2>{status}</h2>
+          </div>
+          <p className="dash-sub">{statusCopy(status)}</p>
+          <div className={`dash-agent ${connected ? "is-on" : "is-off"}`}>
+            <span className="pulse" />
+            {connected ? "WorkPulse Agent Connected" : "WorkPulse Agent Disconnected"}
+          </div>
+          <p className="muted dash-device-line">Device: {deviceName}</p>
+        </div>
+        <div className="dash-hero-timer">
+          <div className="clock-hms">
+            <div className="hm">
+              {timer.hours}h {timer.minutes}m
+            </div>
+            <div className="sec">{timer.seconds}s</div>
+          </div>
+          <p className="muted">Active today</p>
+          <div className="dash-target">
+            <div className="row-between">
+              <span className="muted">Toward 08h 00m</span>
+              <span className="muted">{Math.round(progress)}%</span>
+            </div>
+            <div className="progress">
+              <span style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="grid grid-4">
         <StatCard
@@ -116,8 +167,8 @@ export default function DashboardPage() {
         <StatCard
           tone="session"
           label="Session Time"
-          value={day?.session_count ?? "—"}
-          hint="Sessions recorded today"
+          value={formatDuration(day?.total_session_seconds)}
+          hint="Total time in session"
           icon="session"
         />
         <StatCard
@@ -137,63 +188,74 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid grid-2">
-        <article className="card">
-          <div className="row-between">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 4 }}>Today's Activity</h2>
-              <p className="muted">Sessions and attendance notes from today</p>
+        <article className="card dash-summary">
+          <h2 className="card-title">Attendance summary</h2>
+          <div className="summary-tiles">
+            <div className="summary-tile">
+              <span>First Login</span>
+              <strong>{formatTime(day?.first_login_time)}</strong>
             </div>
-            <Link to="/history" className="btn btn-ghost">
-              View all
-            </Link>
+            <div className="summary-tile">
+              <span>Last Logout</span>
+              <strong>{formatTime(day?.last_logout_time)}</strong>
+            </div>
+            <div className="summary-tile">
+              <span>Sessions</span>
+              <strong>{day?.session_count ?? "—"}</strong>
+            </div>
+            <div className="summary-tile">
+              <span>Active Time</span>
+              <strong>{formatDuration(displaySeconds)}</strong>
+            </div>
           </div>
-          {timeline.length ? (
-            <ActivityTimeline items={timeline} />
-          ) : (
-            <EmptyState
-              icon={<Icon name="activity" />}
-              title="No activity recorded yet."
-              body="Events from the WorkPulse Agent will appear here after they are processed."
-            />
-          )}
+          <div className="dash-mix">
+            <div className="row-between">
+              <span>Active</span>
+              <strong>{formatDuration(displaySeconds)}</strong>
+            </div>
+            <div className="bar bar-active">
+              <span style={{ width: `${barWidth(day?.total_active_seconds, day)}%` }} />
+            </div>
+            <div className="row-between">
+              <span>Idle</span>
+              <strong>{formatDuration(day?.total_idle_seconds)}</strong>
+            </div>
+            <div className="bar bar-idle">
+              <span style={{ width: `${barWidth(day?.total_idle_seconds, day)}%` }} />
+            </div>
+            <div className="row-between">
+              <span>Locked</span>
+              <strong>{formatDuration(day?.total_locked_seconds)}</strong>
+            </div>
+            <div className="bar bar-locked">
+              <span style={{ width: `${barWidth(day?.total_locked_seconds, day)}%` }} />
+            </div>
+          </div>
         </article>
 
-        <article className="card">
-          <h2 className="card-title">Attendance Overview</h2>
-          <p className="muted">Today's Active Time</p>
-          <ProgressRing
-            value={progress}
-            label="Today's Active Time"
-            primary={formatDuration(displaySeconds)}
-            sublabel="Target: 08h 00m"
-          />
-          <div className="stack" style={{ marginTop: 16, gap: 10 }}>
-            <div>
-              <div className="row-between">
-                <span>Active</span>
-                <strong>{formatDuration(displaySeconds)}</strong>
-              </div>
-              <ProgressBar value={barWidth(day?.total_active_seconds, day)} tone="active" />
-            </div>
-            <div>
-              <div className="row-between">
-                <span>Idle</span>
-                <strong>{formatDuration(day?.total_idle_seconds)}</strong>
-              </div>
-              <ProgressBar value={barWidth(day?.total_idle_seconds, day)} tone="idle" />
-            </div>
-            <div>
-              <div className="row-between">
-                <span>Locked</span>
-                <strong>{formatDuration(day?.total_locked_seconds)}</strong>
-              </div>
-              <ProgressBar value={barWidth(day?.total_locked_seconds, day)} tone="locked" />
-            </div>
-          </div>
-        </article>
+        <DeviceStatusCard live={live} deviceName={deviceName === "—" ? undefined : deviceName} />
       </section>
 
-      <DeviceStatusCard live={live} />
+      <article className="card">
+        <div className="row-between">
+          <div>
+            <h2 className="card-title" style={{ marginBottom: 4 }}>Today's Activity</h2>
+            <p className="muted">Sessions and attendance notes from today</p>
+          </div>
+          <Link to="/history" className="btn btn-ghost">
+            View all
+          </Link>
+        </div>
+        {timeline.length ? (
+          <ActivityTimeline items={timeline} />
+        ) : (
+          <EmptyState
+            icon={<Icon name="activity" />}
+            title="No activity recorded yet."
+            body="Events from the WorkPulse Agent will appear here after they are processed."
+          />
+        )}
+      </article>
     </div>
   );
 }
