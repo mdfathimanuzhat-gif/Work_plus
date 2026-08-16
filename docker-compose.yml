@@ -22,12 +22,12 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      DEV_SEED_PASSWORD: ${DEV_SEED_PASSWORD:?Set DEV_SEED_PASSWORD in .env}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost}
-      DEV_SEED_PASSWORD: ${DEV_SEED_PASSWORD:?Set DEV_SEED_PASSWORD in .env}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -45,3 +45,4 @@ services:
 
 volumes:
   postgres_data:
+
