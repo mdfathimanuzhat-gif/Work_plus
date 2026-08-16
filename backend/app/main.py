@@ -15,6 +15,7 @@ from app.api.health import router as health_router
 from app.api.teams import router as teams_router
 from app.api.agent import router as agent_router
 from app.api.attendance import router as attendance_router
+from app.api.timesheet import router as timesheet_router
 from app.core.config import get_settings
 from app.core.errors import (
     APIError,
@@ -54,6 +55,7 @@ app.include_router(departments_router, prefix="/api")
 app.include_router(teams_router, prefix="/api")
 app.include_router(agent_router, prefix="/api")
 app.include_router(attendance_router, prefix="/api")
+app.include_router(timesheet_router, prefix="/api")
 
 
 @app.exception_handler(Exception)
