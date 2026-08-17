@@ -89,6 +89,20 @@ def _add_events(employee_id, pairs: list[tuple[datetime, AttendanceEventType]]) 
         session.close()
 
 
+def _clear_events_since(employee_id, since: datetime) -> None:
+    session = SessionLocal()
+    try:
+        session.execute(
+            delete(AttendanceEvent).where(
+                AttendanceEvent.employee_id == employee_id,
+                AttendanceEvent.event_time >= since,
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+
 def test_employee_can_only_read_own_attendance(client: TestClient, people: dict[str, Any]) -> None:
     day = _day(20, 0)
     _add_events(
@@ -201,6 +215,7 @@ def test_attendance_endpoints_are_read_only(client: TestClient, people: dict[str
 
 def test_live_status_is_offline_when_last_event_is_stale(client: TestClient, people: dict[str, Any]) -> None:
     last_seen = datetime.now(timezone.utc) - timedelta(minutes=11)
+    _clear_events_since(people["israh_id"], datetime.now(timezone.utc) - timedelta(days=3))
     _add_events(
         people["israh_id"],
         [(last_seen, AttendanceEventType.LOGIN)],
@@ -216,6 +231,7 @@ def test_live_status_is_offline_when_last_event_is_stale(client: TestClient, peo
 
 def test_live_status_keeps_recent_state(client: TestClient, people: dict[str, Any]) -> None:
     recent_login = datetime.now(timezone.utc) - timedelta(seconds=30)
+    _clear_events_since(people["sameer_id"], datetime.now(timezone.utc) - timedelta(days=3))
     _add_events(
         people["sameer_id"],
         [(recent_login, AttendanceEventType.LOGIN)],
@@ -236,4 +252,44 @@ def test_live_status_keeps_recent_state(client: TestClient, people: dict[str, An
     locked = client.get("/api/attendance/me/live", headers=_auth(token))
     assert locked.status_code == 200, locked.json()
     assert locked.json()["state"] == "LOCKED"
+
+
+def test_employee_can_read_own_raw_events_in_chronological_order(client: TestClient, people: dict[str, Any]) -> None:
+    day = _day(24, 0)
+    _add_events(
+        people["israh_id"],
+        [
+            (day.replace(hour=18), AttendanceEventType.LOGOUT),
+            (day.replace(hour=9), AttendanceEventType.LOGIN),
+            (day.replace(hour=13), AttendanceEventType.LOCK),
+            (day.replace(hour=13, minute=30), AttendanceEventType.UNLOCK),
+        ],
+    )
+    _add_events(
+        people["sameer_id"],
+        [
+            (day.replace(hour=10), AttendanceEventType.LOGIN),
+            (day.replace(hour=16), AttendanceEventType.LOGOUT),
+        ],
+    )
+    israh = _token(client, "israh.zunain@workpulse.local")
+    own = client.get(
+        "/api/attendance/me/events",
+        headers=_auth(israh),
+        params={"date": day.date().isoformat()},
+    )
+    assert own.status_code == 200, own.json()
+    types = [row["event_type"] for row in own.json()]
+    assert types == ["LOGIN", "LOCK", "UNLOCK", "LOGOUT"]
+    timestamps = [row["event_timestamp"] for row in own.json()]
+    assert timestamps == sorted(timestamps)
+    assert {row["event_type"] for row in own.json()} == {"LOGIN", "LOCK", "UNLOCK", "LOGOUT"}
+
+    other = client.get(
+        f"/api/attendance/{people['sameer_id']}/events",
+        headers=_auth(israh),
+        params={"date": day.date().isoformat()},
+    )
+    assert other.status_code == 403
+
 

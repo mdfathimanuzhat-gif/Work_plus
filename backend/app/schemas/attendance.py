@@ -7,7 +7,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import AttendanceSessionStatus, AttendanceStatus
+from app.models.enums import AttendanceEventType, AttendanceSessionStatus, AttendanceStatus
 from app.services.attendance_engine import WorkState
 
 
@@ -66,3 +66,10 @@ class LiveAttendanceResponse(BaseModel):
 class TeamAttendanceResponse(BaseModel):
     attendance_date: date
     records: list[AttendanceDayResponse]
+
+
+class AttendanceEventOut(BaseModel):
+    event_type: AttendanceEventType
+    event_timestamp: datetime
+    device_id: uuid.UUID | None
+    device_name: str | None = None
