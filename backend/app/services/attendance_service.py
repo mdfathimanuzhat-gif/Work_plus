@@ -14,10 +14,12 @@ from app.models.attendance import Attendance, AttendanceSession
 from app.models.employee import Employee
 from app.models.enums import AttendanceSessionStatus
 from app.repositories import attendance as attendance_repository
+from app.repositories import attendance_event as attendance_event_repository
 from app.repositories import employee as employee_repository
 from app.schemas.attendance import (
     AttendanceAnomalyResponse,
     AttendanceDayResponse,
+    AttendanceEventOut,
     AttendanceSessionResponse,
     LiveAttendanceResponse,
     TeamAttendanceResponse,
@@ -263,6 +265,31 @@ def live_status(session: Session, user: AuthenticatedUser, employee_id: uuid.UUI
         attendance_date=local_date(now, tz),
         timezone=tz_name,
     )
+
+
+def list_raw_events(
+    session: Session,
+    user: AuthenticatedUser,
+    employee_id: uuid.UUID,
+    attendance_date: date | None,
+) -> list[AttendanceEventOut]:
+    employee = employee_repository.get_employee_by_id(session, employee_id)
+    ensure_can_view_attendance(user, employee)
+    assert employee is not None
+    tz_name = _timezone_name(employee)
+    tz = load_zoneinfo(tz_name)
+    day = attendance_date or local_date(datetime.now(timezone.utc), tz)
+    start, end = local_day_bounds(day, tz)
+    rows = attendance_event_repository.list_events_for_employee_in_range(session, employee.id, start, end)
+    return [
+        AttendanceEventOut(
+            event_type=row.event_type,
+            event_timestamp=ensure_utc(row.event_time),
+            device_id=row.device_id,
+            device_name=row.device.device_name if row.device is not None else None,
+        )
+        for row in rows
+    ]
 
 
 def team_attendance_on_date(

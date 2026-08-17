@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.attendance import AttendanceEvent
 
@@ -20,3 +21,22 @@ def get_client_event_ids(session: Session, event_ids: list[uuid.UUID]) -> set[uu
 def add_attendance_event(session: Session, event: AttendanceEvent) -> AttendanceEvent:
     session.add(event)
     return event
+
+
+def list_events_for_employee_in_range(
+    session: Session,
+    employee_id: uuid.UUID,
+    start: datetime,
+    end: datetime,
+) -> list[AttendanceEvent]:
+    statement = (
+        select(AttendanceEvent)
+        .options(selectinload(AttendanceEvent.device))
+        .where(
+            AttendanceEvent.employee_id == employee_id,
+            AttendanceEvent.event_time >= start,
+            AttendanceEvent.event_time < end,
+        )
+        .order_by(AttendanceEvent.event_time.asc(), AttendanceEvent.id.asc())
+    )
+    return list(session.scalars(statement).unique())

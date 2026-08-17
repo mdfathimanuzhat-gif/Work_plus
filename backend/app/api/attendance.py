@@ -11,7 +11,12 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser
 from app.database.session import get_db
-from app.schemas.attendance import AttendanceDayResponse, LiveAttendanceResponse, TeamAttendanceResponse
+from app.schemas.attendance import (
+    AttendanceDayResponse,
+    AttendanceEventOut,
+    LiveAttendanceResponse,
+    TeamAttendanceResponse,
+)
 from app.services import attendance_service
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -35,6 +40,15 @@ def get_my_live_attendance(user: CurrentUser, session: DbSession) -> LiveAttenda
     return attendance_service.live_status(session, user, user.employee_id)
 
 
+@router.get("/me/events", response_model=list[AttendanceEventOut])
+def get_my_attendance_events(
+    user: CurrentUser,
+    session: DbSession,
+    date: date | None = Query(default=None),
+) -> list[AttendanceEventOut]:
+    return attendance_service.list_raw_events(session, user, user.employee_id, date)
+
+
 @router.get("/me/{attendance_date}", response_model=AttendanceDayResponse)
 def get_my_attendance_on_date(
     attendance_date: date,
@@ -55,6 +69,16 @@ def get_team_attendance(
     payload = attendance_service.team_attendance_on_date(session, user, attendance_date)
     session.commit()
     return payload
+
+
+@router.get("/{employee_id}/events", response_model=list[AttendanceEventOut])
+def get_employee_attendance_events(
+    employee_id: uuid.UUID,
+    user: CurrentUser,
+    session: DbSession,
+    date: date | None = Query(default=None),
+) -> list[AttendanceEventOut]:
+    return attendance_service.list_raw_events(session, user, employee_id, date)
 
 
 @router.get("/{employee_id}/{attendance_date}", response_model=AttendanceDayResponse)
