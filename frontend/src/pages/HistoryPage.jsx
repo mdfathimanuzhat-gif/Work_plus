@@ -5,9 +5,9 @@ import EmptyState from "../components/EmptyState.jsx";
 import { Icon } from "../components/icons.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
-import { getMyAttendanceDay } from "../services/attendance.js";
+import { getEvents } from "../services/attendance.js";
 import { formatTime, todayIso, userMessage } from "../utils/format.js";
-import { timelineFromAttendanceDay } from "../utils/timeline.js";
+import { eventLabel } from "../utils/timeline.js";
 
 const EVENT_FILTERS = [
   { value: "ALL", label: "All types" },
@@ -23,10 +23,41 @@ const EVENT_FILTERS = [
   { value: "SYSTEM_RESTART", label: "Restart" },
 ];
 
+const FILTER_MATCHES = {
+  WINDOWS_LOGIN: ["WINDOWS_LOGIN", "LOGIN"],
+  WINDOWS_LOGOUT: ["WINDOWS_LOGOUT", "LOGOUT"],
+  SYSTEM_LOCK: ["SYSTEM_LOCK", "LOCK"],
+  SYSTEM_UNLOCK: ["SYSTEM_UNLOCK", "UNLOCK"],
+  SYSTEM_SLEEP: ["SYSTEM_SLEEP", "SLEEP"],
+  SYSTEM_WAKE: ["SYSTEM_WAKE", "WAKE"],
+  SYSTEM_SHUTDOWN: ["SYSTEM_SHUTDOWN", "SHUTDOWN"],
+  SYSTEM_RESTART: ["SYSTEM_RESTART", "RESTART"],
+  IDLE_START: ["IDLE_START"],
+  IDLE_END: ["IDLE_END"],
+};
+
+function matchesFilter(eventType, filter) {
+  if (filter === "ALL") return true;
+  const type = String(eventType || "").toUpperCase();
+  const aliases = FILTER_MATCHES[filter] || [filter];
+  return aliases.includes(type);
+}
+
+function toTimelineItem(event, index) {
+  const type = event.event_type;
+  return {
+    id: `${event.event_timestamp}-${type}-${event.device_id || index}`,
+    type,
+    label: eventLabel(type),
+    time: event.event_timestamp,
+    detail: event.device_name || null,
+  };
+}
+
 export default function HistoryPage() {
   const [date, setDate] = useState(todayIso());
   const [type, setType] = useState("ALL");
-  const [day, setDay] = useState(null);
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -34,10 +65,10 @@ export default function HistoryPage() {
     setError("");
     setLoading(true);
     try {
-      setDay(await getMyAttendanceDay(date));
+      setEvents(await getEvents(date));
     } catch (err) {
       setError(userMessage(err, "We couldn't load activity history."));
-      setDay(null);
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -48,16 +79,14 @@ export default function HistoryPage() {
   }, [load]);
 
   const items = useMemo(() => {
-    const all = timelineFromAttendanceDay(day);
-    if (type === "ALL") return all;
-    return all.filter((item) => String(item.type || "").toUpperCase() === type);
-  }, [day, type]);
+    return events.filter((event) => matchesFilter(event.event_type, type)).map(toTimelineItem);
+  }, [events, type]);
 
   return (
     <div className="stack">
       <PageHeader
         title="Activity History"
-        subtitle="Derived from daily sessions and attendance notes. A raw event feed is not available from the current API."
+        subtitle="Lock, unlock, idle, and session events from the WorkPulse Agent."
       />
 
       <div className="filters">
@@ -100,8 +129,8 @@ export default function HistoryPage() {
                     <tr key={item.id}>
                       <td>{item.label}</td>
                       <td>{formatTime(item.time)}</td>
-                      <td>—</td>
-                      <td>{item.detail || item.type || "—"}</td>
+                      <td>{item.detail || "—"}</td>
+                      <td>{item.type || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -112,7 +141,7 @@ export default function HistoryPage() {
           <EmptyState
             icon={<Icon name="activity" />}
             title="No activity recorded yet."
-            body="Historical raw events are not exposed by the API. This view uses session and anomaly data for the selected date."
+            body="Events from the WorkPulse Agent for this date will appear here."
           />
         )}
       </article>
