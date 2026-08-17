@@ -3,11 +3,12 @@ import { formatTime } from "../utils/format.js";
 import { eventIcon } from "../utils/timeline.js";
 
 export default function ActivityTimeline({ items }) {
-  if (!items?.length) return null;
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) return null;
   return (
     <ol className="timeline">
-      {items.map((item) => (
-        <li key={item.id}>
+      {list.map((item, index) => (
+        <li key={item.id != null ? `${item.id}-${index}` : index}>
           <span className="tl-icon">
             <Icon name={eventIcon(item.type)} size={14} />
           </span>
