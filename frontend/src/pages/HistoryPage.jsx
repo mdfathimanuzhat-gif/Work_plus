@@ -36,27 +36,20 @@ const FILTER_MATCHES = {
   IDLE_END: ["IDLE_END"],
 };
 
+function eventTypeOf(event) {
+  return event?.event_type || event?.type || event?.eventType || "";
+}
+
 function matchesFilter(eventType, filter) {
-  if (filter === "ALL") return true;
+  if (!filter || filter === "ALL") return true;
   const type = String(eventType || "").toUpperCase();
   const aliases = FILTER_MATCHES[filter] || [filter];
   return aliases.includes(type);
 }
 
-function toTimelineItem(event, index) {
-  const type = event.event_type;
-  return {
-    id: `${event.event_timestamp}-${type}-${event.device_id || index}`,
-    type,
-    label: eventLabel(type),
-    time: event.event_timestamp,
-    detail: event.device_name || null,
-  };
-}
-
 export default function HistoryPage() {
   const [date, setDate] = useState(todayIso());
-  const [type, setType] = useState("ALL");
+  const [eventTypeFilter, setEventTypeFilter] = useState("ALL");
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,7 +58,8 @@ export default function HistoryPage() {
     setError("");
     setLoading(true);
     try {
-      setEvents(await getEvents(date));
+      const payload = await getEvents(date);
+      setEvents(Array.isArray(payload) ? payload : []);
     } catch (err) {
       setError(userMessage(err, "We couldn't load activity history."));
       setEvents([]);
@@ -79,8 +73,19 @@ export default function HistoryPage() {
   }, [load]);
 
   const items = useMemo(() => {
-    return events.filter((event) => matchesFilter(event.event_type, type)).map(toTimelineItem);
-  }, [events, type]);
+    return events
+      .filter((event) => matchesFilter(eventTypeOf(event), eventTypeFilter))
+      .map((event, index) => {
+        const type = eventTypeOf(event);
+        return {
+          id: `history-${date}-${index}`,
+          type,
+          label: eventLabel(type),
+          time: event.event_timestamp || event.timestamp || event.event_time,
+          detail: event.device_name || event.deviceName || null,
+        };
+      });
+  }, [date, events, eventTypeFilter]);
 
   return (
     <div className="stack">
@@ -96,7 +101,11 @@ export default function HistoryPage() {
         </label>
         <label className="label" style={{ minWidth: 200 }}>
           Event type
-          <select value={type} onChange={(e) => setType(e.target.value)}>
+          <select
+            value={eventTypeFilter}
+            autoComplete="off"
+            onChange={(e) => setEventTypeFilter(e.target.value || "ALL")}
+          >
             {EVENT_FILTERS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -125,8 +134,8 @@ export default function HistoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
+                  {items.map((item, index) => (
+                    <tr key={`${item.id}-${index}`}>
                       <td>{item.label}</td>
                       <td>{formatTime(item.time)}</td>
                       <td>{item.detail || "—"}</td>
