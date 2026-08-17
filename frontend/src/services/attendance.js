@@ -29,3 +29,12 @@ export async function getMyAttendanceDay(attendanceDate) {
   const response = await getMyAttendanceOnDate(attendanceDate);
   return response.data;
 }
+
+export function getMyAttendanceEvents(attendanceDate) {
+  return api.get("/attendance/me/events", { params: { date: attendanceDate } });
+}
+
+export async function getEvents(date) {
+  const response = await getMyAttendanceEvents(date);
+  return Array.isArray(response.data) ? response.data : [];
+}
