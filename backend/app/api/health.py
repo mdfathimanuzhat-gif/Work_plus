@@ -1,3 +1,14 @@
+﻿"""Liveness endpoint. Does not query the database."""
+from fastapi import APIRouter
+
+router = APIRouter(tags=["health"])
+
+
+@router.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @router.get("/debug/seed-check")
 def debug_seed_check():
     from app.database.session import SessionLocal
