@@ -24,3 +24,20 @@ def debug_seed_check():
         return {"error": str(e)}
     finally:
         session.close()
+
+
+@router.post("/debug/seed-run")
+def debug_seed_run():
+    from app.database.seed import seed_development_data
+    from app.database.session import SessionLocal
+    session = SessionLocal()
+    try:
+        org = seed_development_data(session)
+        session.commit()
+        return {"status": "ok", "organization_code": org.code, "organization_id": str(org.id)}
+    except Exception as e:
+        session.rollback()
+        import traceback
+        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
+    finally:
+        session.close()
