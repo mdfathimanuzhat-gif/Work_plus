@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
 
 from app.agent import print_status, run_agent  # noqa: E402
 from app.config import load_settings  # noqa: E402
+from app.sync.enroll_prompt import InteractiveEnrollError, maybe_interactive_enroll  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -62,6 +63,15 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_settings(**overrides)
     if args.status:
         return print_status(settings)
+    if not args.test:
+        try:
+            settings = maybe_interactive_enroll(settings)
+        except InteractiveEnrollError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        except KeyboardInterrupt:
+            print("Enrollment cancelled.", file=sys.stderr)
+            return 1
     return run_agent(settings, once=args.once, sequence=args.events, sync_once=args.sync_once)
 
 
